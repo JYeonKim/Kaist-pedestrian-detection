@@ -1,5 +1,4 @@
 # Kaist-pedestrian-detection
-Kaist-pedestrian-detection
-
-main branch코드는 thermal baseline 원복한 코드입니다.
-(자신의 폴더에 맞춰 경로 변경이 필수입니다. 생각보다 많이 바꿔야하니 주의해주세요)
+- 2번째 branch는 rgb baseline 원복한 코드입니다.
+- checkpoint도 같이 올리려고 했는데 에러가 발생하여 올리지 못했습니다.
+- checkpoint를 원하시는 분은 저한테 문의해주세요
