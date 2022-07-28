@@ -64,42 +64,75 @@ def detect(original_image, min_score, max_overlap, top_k, suppress=None):
         if suppress is not None:
             if det_labels[i] in suppress:
                 continue
-            
-        if det_scores[0][i] > 0.3:
-            # Boxes
-            box_location = det_boxes[i].tolist()
-            draw.rectangle(xy=box_location, outline=label_color_map[det_labels[i]])
-            draw.rectangle(xy=[l + 1. for l in box_location], outline=label_color_map[
-                det_labels[i]])
+        # Boxes
+        box_location = det_boxes[i].tolist()
+        draw.rectangle(xy=box_location, outline=label_color_map[det_labels[i]])
+        draw.rectangle(xy=[l + 1. for l in box_location], outline=label_color_map[
+            det_labels[i]])
 
-            # Text
-            text_size = font.getsize(det_labels[i].upper())
-            text_location = [box_location[0] + 2., box_location[1] - text_size[1]]
-            textbox_location = [box_location[0], box_location[1] - text_size[1], box_location[0] + text_size[0] + 4.,
-                                box_location[1]]
-            draw.rectangle(xy=textbox_location, fill=label_color_map[det_labels[i]])
-            # 수정
-            # text = det_labels[i].upper()
-            text = str(round(det_scores[0][i].cpu().detach().item(), 4))
-            draw.text(xy=text_location, text=text, fill='white',
-                    font=font)
+        # Text
+        text_size = font.getsize(det_labels[i].upper())
+        text_location = [box_location[0] + 2., box_location[1] - text_size[1]]
+        textbox_location = [box_location[0], box_location[1] - text_size[1], box_location[0] + text_size[0] + 4.,
+                            box_location[1]]
+        draw.rectangle(xy=textbox_location, fill=label_color_map[det_labels[i]])
+
+        text = str(round(det_scores[0][i].cpu().detach().item(), 4))
+        draw.text(xy=text_location, text=text, fill='white',
+                font=font)
     del draw
     
     return annotated_image
 
+def show_gt_image(orininal_image, annotation):
+    bboxes = []
+    labels = []
+    for obj in annotation:
+        if obj["category_id"] == -1:
+            continue
+        bboxes.append(obj["bbox"])
+        labels.append(obj["category_id"])
+    
+    if len(bboxes) == 0:
+        return original_image
+
+    labels = [rev_label_map[l] for l in labels]
+    
+    if labels == ['background']:
+    # Just return original image
+        return original_image
+    
+    annotated_image = original_image
+    draw = ImageDraw.Draw(orininal_image)
+    # pdb.set_trace()
+    font = ImageFont.load_default()
+
+    for i in range(len(bboxes)):
+        box_location = bboxes[i]
+        draw.rectangle(xy=box_location, outline='blue')
+        draw.rectangle(xy=[l + 1. for l in box_location], outline='blue')
+    
+    del draw
+
+    return annotated_image
 
 if __name__ == '__main__':
-    print("출력4")
-    out_path = "/content/drive/MyDrive/kaist_output/thermal_detection_0725.mp4"
+    out_path = "/content/drive/MyDrive/kaist_output/ssd-h_detection.mp4"
     fps = 5
     frame_array = []
-    with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_lwir_images.json'), 'r') as j:
+    with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_rgb_images.json'), 'r') as j:
         img_path = json.load(j)   
         for index, img in tqdm(enumerate(img_path)):
             f_name = img.split("/")[-1]
+            json_name = f_name.split(".")[0]
+            img_split = img.split("/")
+            json_path = os.path.join("/content/drive/MyDrive/KAIST_PD", "annotation_json", img_split[6], img_split[7], json_name + ".json")
+            with open(os.path.join(json_path), 'r') as j:
+                objects = json.load(j)
             original_image = Image.open(img, mode='r')
             original_image = original_image.convert('RGB')
             annotated_image = detect(original_image, min_score=0.2, max_overlap=0.5, top_k=200)
+            annotated_image = show_gt_image(annotated_image, objects["annotation"])
             numpy_image = np.array(annotated_image)
             opencv_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
             # print(opencv_image)

@@ -19,9 +19,7 @@ rev_label_map = {v: k for k, v in label_map.items()}  # Inverse mapping
 distinct_colors = ['#e6194b', '#3cb44b']
 label_color_map = {k: distinct_colors[i] for i, k in enumerate(label_map.keys())}
 
-# [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
 def create_data_lists(kaist_path, output_folder):
-    print("시작2")
     """
     Create lists of images, the bounding boxes and labels of the objects in these images, and save these to file.
 
@@ -46,27 +44,27 @@ def create_data_lists(kaist_path, output_folder):
             lwir_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'lwir')
             
             file_name_jpg = id_split_list[2] + '.jpg'
-            file_name_json = id_split_list[2] + '.json'
+            # file_name_json = id_split_list[2] + '.json'
 
             train_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
             train_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
             
-            obj_list = []
-            with open(os.path.join(kaist_path, 'annotation_json', id_split_list[0], id_split_list[1], file_name_json), 'r') as file:
-                objects = json.load(file)
-                for obj in objects["annotation"]:
-                    if obj["category_id"] != -1:                         
-                        obj_list.append(obj) # obj_list에는 하나의 이미지에 대한 annoatation 원소들이 들어간다 (근데 category_id가 -1인 것은 제외하고)
+            # obj_list = []
+            # with open(os.path.join(kaist_path, 'annotation_json', id_split_list[0], id_split_list[1], file_name_json), 'r') as file:
+            #     objects = json.load(file)
+            #     for obj in objects["annotation"]:
+            #         if obj["category_id"] != -1:                         
+            #             obj_list.append(obj) # obj_list에는 하나의 이미지에 대한 annoatation 원소들이 들어간다 (근데 category_id가 -1인 것은 제외하고)
 
-            if len(obj_list) > 0: 
-                bbox = []
-                category_id = []
-                is_crowd = []
-                for obj in obj_list:
-                    bbox.append(obj["bbox"])
-                    category_id.append(obj["category_id"])
-                    is_crowd.append(obj["is_crowd"])
-                train_objects.append({"bbox":bbox, "category_id":category_id, "is_crowd":is_crowd})
+            # if len(obj_list) > 0: 
+            #     bbox = []
+            #     category_id = []
+            #     is_crowd = []
+            #     for obj in obj_list:
+            #         bbox.append(obj["bbox"])
+            #         category_id.append(obj["category_id"])
+            #         is_crowd.append(obj["is_crowd"])
+            #     train_objects.append({"bbox":bbox, "category_id":category_id, "is_crowd":is_crowd})
 
     # assert len(train_objects) == len(train_images)
 
@@ -84,8 +82,8 @@ def create_data_lists(kaist_path, output_folder):
     with open(os.path.join(output_folder, 'TRAIN_total_images.json'), 'w') as j:
         json.dump(train_total_images, j)
 
-    with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
-        json.dump(train_objects, j)
+    # with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
+    #     json.dump(train_objects, j)
     
     # label_map.json은 생략
     # with open(os.path.join(output_folder, 'label_map.json'), 'w') as j:
@@ -100,34 +98,34 @@ def create_data_lists(kaist_path, output_folder):
     test_total_images = list()
     # test_objects = list()
 
-    with open(os.path.join(kaist_path, 'test-all-20.txt')) as f:
-        ids = f.read().splitlines()
+    # with open(os.path.join(kaist_path, 'test-all-20.txt')) as f:
+    #     ids = f.read().splitlines()
 
-        for id in tqdm(ids):
-            id_split_list = id.split('/')
+    #     for id in tqdm(ids):
+    #         id_split_list = id.split('/')
             
-            rgb_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'visible')
-            lwir_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'lwir')
+    #         rgb_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'visible')
+    #         lwir_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'lwir')
             
-            file_name_jpg = id_split_list[2] + '.jpg'
-            # file_name_json = id_split_list[2] + '.json'
+    #         file_name_jpg = id_split_list[2] + '.jpg'
+    #         # file_name_json = id_split_list[2] + '.json'
 
-            test_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
-            test_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
+    #         test_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
+    #         test_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
 
-    for rgb, lwir in zip(test_rgb_images, test_lwir_images):
-        test_total_images.append(rgb)
-        test_total_images.append(lwir)
+    # for rgb, lwir in zip(test_rgb_images, test_lwir_images):
+    #     test_total_images.append(rgb)
+    #     test_total_images.append(lwir)
 
-    # Save to file
-    with open(os.path.join(output_folder, 'TEST_rgb_images.json'), 'w') as j:
-        json.dump(test_rgb_images, j)
-    with open(os.path.join(output_folder, 'TEST_lwir_images.json'), 'w') as j:
-        json.dump(test_lwir_images, j)
+    # # Save to file
+    # with open(os.path.join(output_folder, 'TEST_rgb_images.json'), 'w') as j:
+    #     json.dump(test_rgb_images, j)
+    # with open(os.path.join(output_folder, 'TEST_lwir_images.json'), 'w') as j:
+    #     json.dump(test_lwir_images, j)
     
-    # rgb, lwir 한꺼번에 저장
-    with open(os.path.join(output_folder, 'TEST_total_images.json'), 'w') as j:
-        json.dump(test_total_images, j)
+    # # rgb, lwir 한꺼번에 저장
+    # with open(os.path.join(output_folder, 'TEST_total_images.json'), 'w') as j:
+    #     json.dump(test_total_images, j)
 
     print('\nTEST DATA) Files have been saved to %s.\n' % (os.path.abspath(output_folder)))
 

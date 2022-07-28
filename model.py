@@ -17,6 +17,8 @@ class VGGBase(nn.Module):
         super(VGGBase, self).__init__()
 
         # Standard convolutional layers in VGG16
+        
+        # rgb
         self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)  # stride = 1, by default
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -40,40 +42,93 @@ class VGGBase(nn.Module):
         self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.pool5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)  # retains size because stride is 1 (and padding)
 
+        
         # Replacements for FC6 and FC7 in VGG16
         self.conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
-        
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
+        # conv_NIN weight 초기화
+        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=3, padding=1) # 1*1 conv layer인 nin 추가
+
+        # thermal
+        self.conv1_1_thermal = nn.Conv2d(3, 64, kernel_size=3, padding=1) # thermal
+        self.conv1_2_thermal = nn.Conv2d(64, 64, kernel_size=3, padding=1) # thermal
+        self.conv2_1_thermal = nn.Conv2d(64, 128, kernel_size=3, padding=1) # thermal
+        self.conv2_2_thermal = nn.Conv2d(128, 128, kernel_size=3, padding=1) # thermal
+        self.conv3_1_thermal = nn.Conv2d(128, 256, kernel_size=3, padding=1) # thermal
+        self.conv3_2_thermal = nn.Conv2d(256, 256, kernel_size=3, padding=1) # thermal
+        self.conv3_3_thermal = nn.Conv2d(256, 256, kernel_size=3, padding=1) # thermal
+        self.conv4_1_thermal = nn.Conv2d(256, 512, kernel_size=3, padding=1) # thermal
+        self.conv4_2_thermal = nn.Conv2d(512, 512, kernel_size=3, padding=1) # thermal
+        self.conv4_3_thermal = nn.Conv2d(512, 512, kernel_size=3, padding=1) # thermal
+        
         # Load pretrained layers
         self.load_pretrained_layers()
 
-    def forward(self, image):
+
+    # SSD300에서 base로 rgb_image와 thermal_image를 인자로 주었기 때문에
+    # forward를 수정해줍니다.
+    def forward(self, rgb_image, thermal_image):
         """
         Forward propagation.
 
         :param image: images, a tensor of dimensions (N, 3, 300, 300)
         :return: lower-level feature maps conv4_3 and conv7
         """
-        out = F.relu(self.conv1_1(image))  # (N, 64, 300, 300)
-        out = F.relu(self.conv1_2(out))  # (N, 64, 300, 300)
-        out = self.pool1(out)  # (N, 64, 150, 150)
+        # rgb
+        rgb_out = F.relu(self.conv1_1(rgb_image))  # (N, 64, 300, 300)
+        rgb_out = F.relu(self.conv1_2(rgb_out))  # (N, 64, 300, 300)
+        rgb_out = self.pool1(rgb_out)  # (N, 64, 150, 150)
 
-        out = F.relu(self.conv2_1(out))  # (N, 128, 150, 150)
-        out = F.relu(self.conv2_2(out))  # (N, 128, 150, 150)
-        out = self.pool2(out)  # (N, 128, 75, 75)
+        rgb_out = F.relu(self.conv2_1(rgb_out))  # (N, 128, 150, 150)
+        rgb_out = F.relu(self.conv2_2(rgb_out))  # (N, 128, 150, 150)
+        rgb_out = self.pool2(rgb_out)  # (N, 128, 75, 75)
 
-        out = F.relu(self.conv3_1(out))  # (N, 256, 75, 75)
-        out = F.relu(self.conv3_2(out))  # (N, 256, 75, 75)
-        out = F.relu(self.conv3_3(out))  # (N, 256, 75, 75)
-        out = self.pool3(out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
+        rgb_out = F.relu(self.conv3_1(rgb_out))  # (N, 256, 75, 75)
+        rgb_out = F.relu(self.conv3_2(rgb_out))  # (N, 256, 75, 75)
+        rgb_out = F.relu(self.conv3_3(rgb_out))  # (N, 256, 75, 75)
+        rgb_out = self.pool3(rgb_out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
 
-        out = F.relu(self.conv4_1(out))  # (N, 512, 38, 38)
-        out = F.relu(self.conv4_2(out))  # (N, 512, 38, 38)
-        out = F.relu(self.conv4_3(out))  # (N, 512, 38, 38)
-        conv4_3_feats = out  # (N, 512, 38, 38)
+        rgb_out = F.relu(self.conv4_1(rgb_out))  # (N, 512, 38, 38)
+        rgb_out = F.relu(self.conv4_2(rgb_out))  # (N, 512, 38, 38)
+        rgb_out = F.relu(self.conv4_3(rgb_out))  # (N, 512, 38, 38)
+        rgb_conv4_3_feats = rgb_out  # (N, 512, 38, 38)
+        
+        # thermal
+        thermal_out = F.relu(self.conv1_1_thermal(thermal_image))  # (N, 64, 300, 300)
+        thermal_out = F.relu(self.conv1_2_thermal(thermal_out))  # (N, 64, 300, 300)
+        thermal_out = self.pool1(thermal_out)  # (N, 64, 150, 150)
+
+        thermal_out = F.relu(self.conv2_1_thermal(thermal_out))  # (N, 128, 150, 150)
+        thermal_out = F.relu(self.conv2_2_thermal(thermal_out))  # (N, 128, 150, 150)
+        thermal_out = self.pool2(thermal_out)  # (N, 128, 75, 75)
+
+        thermal_out = F.relu(self.conv3_1_thermal(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_2_thermal(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_3_thermal(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = self.pool3(thermal_out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
+
+        thermal_out = F.relu(self.conv4_1_thermal(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_2_thermal(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_3_thermal(thermal_out))  # (N, 512, 38, 38)
+        thermal_conv4_3_feats = thermal_out  # (N, 512, 38, 38)
+
+        # 여기서 각각의 conv4_3 feature map을 concatenate 해줍니다.
+        # concatenate 되기 전에는 n*n*m 형태
+        # concatenate 된 후에는 n*n*2m 형태
+        # rgb_conv4_3_feats.shape # torch.Size([32, 512, 38, 38])
+        # thermal_conv4_3_feats.shape # torch.Size([32, 512, 38, 38])
+        # fusion_conv4_3_feats.shape # torch.Size([32, 1024, 38, 38])
+        fusion_conv4_3_feats = torch.cat((rgb_conv4_3_feats, thermal_conv4_3_feats), dim=1)
+        fusion_conv4_3_feats = fusion_conv4_3_feats
+        
+        # NIN 
+        # NIN을 이용하여 feture map의 크기를 다시 n*n*m으로 줄어야 한다. (VGG16의 pretrained weight를 사용해야하기 때문!!)
+        # 1*1 convolutional layer인 NIN (Network-in-Network)
+        conv4_3_feats = self.conv_nin(fusion_conv4_3_feats)
+
+        out = conv4_3_feats
         out = self.pool4(out)  # (N, 512, 19, 19)
-
         out = F.relu(self.conv5_1(out))  # (N, 512, 19, 19)
         out = F.relu(self.conv5_2(out))  # (N, 512, 19, 19)
         out = F.relu(self.conv5_3(out))  # (N, 512, 19, 19)
@@ -101,11 +156,27 @@ class VGGBase(nn.Module):
         # Pretrained VGG base
         pretrained_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
         pretrained_param_names = list(pretrained_state_dict.keys())
-
+                
+        # param_names
+        
         # Transfer conv. parameters from pretrained model to current model
-        for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
+        for i, param in enumerate(param_names[:-(6 + 10*2)]):  # excluding conv6 and conv7 and conv_nin parameters ans thermal parameters
+            state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
+        
+        # conv thermal weight 초기화
+        # param_names[-20:] # conv1_1에 들어갔던 pretrained weight가 동일하게 들어간다.
+        # ['conv1_1_thermal.weight', 'conv1_1_thermal.bias', 'conv1_2_thermal.weight', 'conv1_2_thermal.bias', 'conv2_1_thermal.weight', 'conv2_1_thermal.bias', 'conv2_2_thermal.weight', 
+        # 'conv2_2_thermal.bias', 'conv3_1_thermal.weight', 'conv3_1_thermal.bias', 'conv3_2_thermal.weight', 'conv3_2_thermal.bias', 'conv3_3_thermal.weight', 'conv3_3_thermal.bias', 
+        # 'conv4_1_thermal.weight', 'conv4_1_thermal.bias', 'conv4_2_thermal.weight', 'conv4_2_thermal.bias', 'conv4_3_thermal.weight', 'conv4_3_thermal.bias']
+        for i, param in enumerate(param_names[-20:]):
             state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
 
+        # conv_nin weight 초기화
+        conv_fc_nin_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)
+        conv_fc_nin_bias = pretrained_state_dict['classifier.0.bias']
+        state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 0.5, 3, 3]) # (512, 1024, 3, 3)
+        state_dict['conv_nin.bias'] = decimate(conv_fc_nin_bias, m=[8])  # (512)
+        
         # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
         # fc6
         conv_fc6_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
@@ -117,6 +188,15 @@ class VGGBase(nn.Module):
         conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
         state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
         state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
+        
+        # conv_fc6_weight tensor
+        # conv_fc6_bias tensor
+        # state_dict['conv6.weight'] tensor
+        # state_dict['conv6.bias'] tensor
+        # 'classifier.6.weight', 'classifier.6.bias'        
+        # import pdb; pdb.set_trace()
+        # conv_nin_weight = pretrained_state_dict['classifier.6.weight'].view(4096, 1024, 7, 7)
+        # conv_nin_bias = pretrained_state_dict['classifier.6.bias'].view(4096, 1024, 7, 7)
 
         # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
         # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
@@ -157,8 +237,8 @@ class AuxiliaryConvolutions(nn.Module):
         """
         for c in self.children():
             if isinstance(c, nn.Conv2d):
-                nn.init.xavier_uniform_(c.weight) # 자비에르로 w 초기화
-                nn.init.constant_(c.bias, 0.) # bias는 0으로 초기화
+                nn.init.xavier_uniform_(c.weight)
+                nn.init.constant_(c.bias, 0.)
 
     def forward(self, conv7_feats):
         """
@@ -185,7 +265,7 @@ class AuxiliaryConvolutions(nn.Module):
         # Higher-level feature maps
         return conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats
 
-# 여기가 그 feature map 사용해서 prediction 하는 부분
+
 class PredictionConvolutions(nn.Module):
     """
     Convolutions to predict class scores and bounding boxes using lower and higher-level feature maps.
@@ -342,7 +422,9 @@ class SSD300(nn.Module):
         # Prior boxes
         self.priors_cxcy = self.create_prior_boxes()
 
-    def forward(self, image):
+    # 앞에서 ssd300 모델을 학습할 때 이미지 두개를 넣어줬기 때문에 여기서 이미지를 2개 받아야 합니다
+    # thermal_image, rgb_image
+    def forward(self, rgb_image, thermal_image):
         """
         Forward propagation.
 
@@ -350,7 +432,10 @@ class SSD300(nn.Module):
         :return: 8732 locations and class scores (i.e. w.r.t each prior box) for each image
         """
         # Run VGG base network convolutions (lower level feature map generators)
-        conv4_3_feats, conv7_feats = self.base(image)  # (N, 512, 38, 38), (N, 1024, 19, 19)
+        # base는 VGGBase()인데, conv4_3에서 feature map을 합쳐야 하기 때문에 
+        # thermal, rgb 이미지 두개를 넣어줍니다.
+        # self.base에서 반환되는 featrue map은 rgb_image와 thermal_image가 fusion된 featrue map일 것입니다.
+        conv4_3_feats, conv7_feats = self.base(rgb_image, thermal_image)  # (N, 512, 38, 38), (N, 1024, 19, 19)
 
         # Rescale conv4_3 after L2 norm
         norm = conv4_3_feats.pow(2).sum(dim=1, keepdim=True).sqrt()  # (N, 1, 38, 38)
@@ -398,7 +483,7 @@ class SSD300(nn.Module):
         fmaps = list(fmap_dims.keys())
 
         prior_boxes = []
-        
+
         for k, fmap in enumerate(fmaps):
             for i in range(fmap_dims[fmap]):
                 for j in range(fmap_dims[fmap]):
@@ -426,7 +511,7 @@ class SSD300(nn.Module):
     def detect_objects(self, predicted_locs, predicted_scores, min_score, max_overlap, top_k):
         """
         Decipher the 8732 locations and class scores (output of ths SSD300) to detect objects.
-        # 8732개의 location과 class를 판독해서 object 찾아내기
+
         For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
 
         :param predicted_locs: predicted locations/boxes w.r.t the 8732 prior boxes, a tensor of dimensions (N, 8732, 4)
@@ -438,9 +523,8 @@ class SSD300(nn.Module):
         """
         batch_size = predicted_locs.size(0)
         n_priors = self.priors_cxcy.size(0)
-        # 바꾼 부분: 확실히 모르겠음
-        predicted_scores = F.softmax(predicted_scores, dim = 2)
-        
+        predicted_scores = F.softmax(predicted_scores, dim=2)  # (N, 8732, n_classes)
+
         # Lists to store final predicted boxes, labels, and scores for all images
         all_images_boxes = list()
         all_images_labels = list()
@@ -464,7 +548,6 @@ class SSD300(nn.Module):
             for c in range(1, self.n_classes):
                 # Keep only predicted boxes and scores where scores for this class are above the minimum score
                 class_scores = predicted_scores[i][:, c]  # (8732)
-                #import pdb;pdb.set_trace()
                 score_above_min_score = class_scores > min_score  # torch.uint8 (byte) tensor, for indexing
                 n_above_min_score = score_above_min_score.sum().item()
                 if n_above_min_score == 0:
@@ -504,8 +587,6 @@ class SSD300(nn.Module):
                 image_labels.append(torch.LongTensor((1 - suppress).sum().item() * [c]).to(device))
                 image_scores.append(class_scores[1 - suppress])
 
-            # 여기가 제대로 작동하지 않는 것 같음
-            # pdb.set_trace()
             # If no object in any class is found, store a placeholder for 'background'
             if len(image_boxes) == 0:
                 image_boxes.append(torch.FloatTensor([[0., 0., 1., 1.]]).to(device))
@@ -541,8 +622,7 @@ class MultiBoxLoss(nn.Module):
     (1) a localization loss for the predicted locations of the boxes, and
     (2) a confidence loss for the predicted class scores.
     """
-    # 수정
-    # neg_pos_ratio = 3
+
     def __init__(self, priors_cxcy, threshold=0.5, neg_pos_ratio=3, alpha=1.):
         super(MultiBoxLoss, self).__init__()
         self.priors_cxcy = priors_cxcy
@@ -568,7 +648,6 @@ class MultiBoxLoss(nn.Module):
         n_priors = self.priors_cxcy.size(0)
         n_classes = predicted_scores.size(2)
 
-        # pdb.set_trace()
         assert n_priors == predicted_locs.size(1) == predicted_scores.size(1)
 
         true_locs = torch.zeros((batch_size, n_priors, 4), dtype=torch.float).to(device)  # (N, 8732, 4)
@@ -583,7 +662,7 @@ class MultiBoxLoss(nn.Module):
 
             # For each prior, find the object that has the maximum overlap
             overlap_for_each_prior, object_for_each_prior = overlap.max(dim=0)  # (8732)
-            
+
             # We don't want a situation where an object is not represented in our positive (non-background) priors -
             # 1. An object might not be the best object for all priors, and is therefore not in object_for_each_prior.
             # 2. All priors with the object may be assigned as background based on the threshold (0.5).
@@ -591,13 +670,13 @@ class MultiBoxLoss(nn.Module):
             # To remedy this -
             # First, find the prior that has the maximum overlap for each object.
             _, prior_for_each_object = overlap.max(dim=1)  # (N_o)
-            # 만약 둘 다 같은 prior box를 선택하면??
+
             # Then, assign each object to the corresponding maximum-overlap-prior. (This fixes 1.)
             object_for_each_prior[prior_for_each_object] = torch.LongTensor(range(n_objects)).to(device)
 
             # To ensure these priors qualify, artificially give them an overlap of greater than 0.5. (This fixes 2.)
             overlap_for_each_prior[prior_for_each_object] = 1.
-            
+
             # Labels for each prior
             label_for_each_prior = labels[i][object_for_each_prior]  # (8732)
             # Set priors whose overlaps with objects are less than the threshold to be background (no object)
@@ -634,8 +713,7 @@ class MultiBoxLoss(nn.Module):
         # First, find the loss for all priors
         conf_loss_all = self.cross_entropy(predicted_scores.view(-1, n_classes), true_classes.view(-1))  # (N * 8732)
         conf_loss_all = conf_loss_all.view(batch_size, n_priors)  # (N, 8732)
-        
-        # pdb.set_trace()
+
         # We already know which priors are positive
         conf_loss_pos = conf_loss_all[positive_priors]  # (sum(n_positives))
 

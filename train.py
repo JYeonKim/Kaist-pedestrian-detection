@@ -16,8 +16,8 @@ n_classes = len(label_map)  # number of different types of objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
-checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'  # path to model checkpoint, None if none
-# checkpoint = None
+# checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
+checkpoint = None  # path to model checkpoint, None if none
 batch_size = 32  # batch size
 iterations = 120000  # number of iterations to train
 workers = 4  # number of workers for loading data in the DataLoader
@@ -33,11 +33,12 @@ cudnn.benchmark = True
 
 
 def main():
+    print("변경qqqq")
     """
     Training.
     """
     global start_epoch, label_map, epoch, checkpoint, decay_lr_at
-  
+
     # Initialize model or load checkpoint
     if checkpoint is None:
         start_epoch = 0
@@ -65,7 +66,6 @@ def main():
     model = model.to(device)
     criterion = MultiBoxLoss(priors_cxcy=model.priors_cxcy).to(device)
 
-
     # Custom dataloaders
     train_dataset = KaistPDDataset(data_folder,
                                      split='train',
@@ -85,7 +85,7 @@ def main():
 
         # Decay learning rate at particular epochs
         if epoch in decay_lr_at:
-            print("adjust_learning_rate")
+            print("decay_lr_at!!")
             adjust_learning_rate(optimizer, decay_lr_to)
 
         # One epoch's training
@@ -118,18 +118,27 @@ def train(train_loader, model, criterion, optimizer, epoch):
     start = time.time()
 
     # Batches
-    for i, (images, boxes, labels, _) in enumerate(train_loader):
+    for i, (image_list, boxes, labels, _) in enumerate(train_loader):
         data_time.update(time.time() - start)
 
         # Move to default device
-        images = images.to(device)  # (batch_size (N), 3, 300, 300)
+        # 두개의 데이터 입력
+        rgb_images = image_list[0]
+        thermal_images = image_list[1]
+
+        rgb_images = rgb_images.to(device)
+        thermal_images = thermal_images.to(device)
+
+        # images = images.to(device)  # (batch_size (N), 3, 300, 300)
         boxes = [b.to(device) for b in boxes]
         labels = [l.to(device) for l in labels]
 
         # Forward prop.
-        predicted_locs, predicted_scores = model(images)  # (N, 8732, 4), (N, 8732, n_classes)
+        # 두개의 이미지 데이터를 인자로 넣어주었습니다.
+        predicted_locs, predicted_scores = model(rgb_images, thermal_images)  # (N, 8732, 4), (N, 8732, n_classes)
 
         # Loss
+        # loss를 찍어봤을 때 여기서 nan 값이 들어온다.
         loss = criterion(predicted_locs, predicted_scores, boxes, labels)  # scalar
 
         # Backward prop.
@@ -143,7 +152,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # Update model
         optimizer.step()
 
-        losses.update(loss.item(), images.size(0))
+        losses.update(loss.item(), rgb_images.size(0))
         batch_time.update(time.time() - start)
 
         start = time.time()
@@ -156,7 +165,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, i, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
-    del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
+    del predicted_locs, predicted_scores, rgb_images, thermal_images, boxes, labels  # free some memory since their histories may be stored
 
 
 if __name__ == '__main__':

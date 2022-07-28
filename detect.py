@@ -2,6 +2,7 @@ from unicodedata import category
 from torchvision import transforms
 from utils import *
 from PIL import Image, ImageDraw, ImageFont
+from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,7 +23,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 
 prediction_json_list = list()
 
-def detect(original_image, min_score, max_overlap, top_k, image_id, suppress=None):
+def detect(original_image, thermal_original_image, min_score, max_overlap, top_k, image_id, suppress=None):
     """
     Detect objects in an image with a trained SSD300, and visualize the results.
 
@@ -35,13 +36,15 @@ def detect(original_image, min_score, max_overlap, top_k, image_id, suppress=Non
     """
 
     # Transform
-    image = normalize(to_tensor(resize(original_image)))
+    rgb_image = normalize(to_tensor(resize(original_image)))
+    thermal_image = normalize(to_tensor(resize(thermal_original_image)))
 
     # Move to default device
-    image = image.to(device)
+    rgb_image = rgb_image.to(device)
+    thermal_image = thermal_image.to(device)
 
     # Forward prop.
-    predicted_locs, predicted_scores = model(image.unsqueeze(0))
+    predicted_locs, predicted_scores = model(rgb_image.unsqueeze(0), thermal_image.unsqueeze(0))
 
     # Detect objects in SSD output
     det_boxes, det_labels, det_scores = model.detect_objects(predicted_locs, predicted_scores, min_score=min_score,
@@ -55,11 +58,6 @@ def detect(original_image, min_score, max_overlap, top_k, image_id, suppress=Non
     original_dims = torch.FloatTensor(
         [original_image.width, original_image.height, original_image.width, original_image.height]).unsqueeze(0)
     det_boxes = det_boxes * original_dims
-    
-    # 필요한 변수들
-    # det_boxes
-    # det_labels
-    # det_scores
 
     det_labels_not_reverse = det_labels[0].clone().detach()
     # Decode class integer labels
@@ -161,15 +159,18 @@ def create_prediction_json(image_id, det_boxes, det_labels, det_scores):
 
 if __name__ == '__main__':
     # file_name = list()
+    with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_rgb_images.json'), 'r') as j:
+        img_path = json.load(j)
     with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_lwir_images.json'), 'r') as j:
-        img_path = json.load(j)   
+        thermal_img_path = json.load(j)
         for index, img in tqdm(enumerate(img_path)):
             f_name = img.split("/")[-1]
             original_image = Image.open(img, mode='r')
             original_image = original_image.convert('RGB')
-            annotated_image = detect(original_image, min_score=0.2, max_overlap=0.5, top_k=200, image_id=index)
-            # annotated_image.save(os.path.join("/content/drive/MyDrive/kaist_detect_image_1", "detect_" + f_name))
-    
+            thermal_original_image = Image.open(thermal_img_path[index], mode='r')
+            thermal_original_image = thermal_original_image.convert('RGB')
+            annotated_image = detect(original_image, thermal_original_image, min_score=0.2, max_overlap=0.5, top_k=200, image_id=index)
+
     # Save to file(prediction.json)
-    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'thermal_prediction_0725.json'), 'w') as j:
+    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd_h_prediction.json'), 'w') as j:
         json.dump(prediction_json_list, j, indent=4)
