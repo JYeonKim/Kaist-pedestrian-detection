@@ -33,5 +33,5 @@ def evaluate_coco(test_json_path):
 
 if __name__ == '__main__':
 
-    test_json_path = '/content/drive/MyDrive/kaist_output/ssd-h_prediction_0728.json'
+    test_json_path = '/content/drive/MyDrive/kaist_output/ssd-h_prediction_ver3_0728.json'
     evaluate_coco(test_json_path)
