@@ -45,7 +45,7 @@ class VGGBase(nn.Module):
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
         # conv_NIN weight 초기화
-        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=3, padding=1) # 1*1 conv layer인 nin 추가c
+        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=3, padding=1) # 1*1 conv layer인 nin 추가
 
         # Load pretrained layers
         self.load_pretrained_layers()
@@ -151,10 +151,8 @@ class VGGBase(nn.Module):
         conv_fc_nin_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)
         conv_fc_nin_bias = pretrained_state_dict['classifier.0.bias']
         state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 0.5, 3, 3]) # (512, 1024, 3, 3)
-        state_dict['conv_nin.bias'] = decimate(conv_fc_nin_bias, m=[8])  # (1024)
+        state_dict['conv_nin.bias'] = decimate(conv_fc_nin_bias, m=[8])  # (512)
         
-        # import pdb; pdb.set_trace()
-
         # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
         # fc6
         conv_fc6_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
