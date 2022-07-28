@@ -25,18 +25,26 @@ class KaistPDDataset(Dataset):
         self.keep_difficult = keep_difficult
 
         # Read data files
+        # fusion을 진행할 것이기 때문에 rgb와 thermal 이미지를 모두 불러옵니다
         with open(os.path.join(data_folder, self.split + '_rgb_images.json'), 'r') as j:
-            self.images = json.load(j)
+            self.rgb_images = json.load(j)
+        with open(os.path.join(data_folder, self.split + '_lwir_images.json'), 'r') as j:
+            self.thermal_images = json.load(j)
         with open(os.path.join(data_folder, self.split + '_objects.json'), 'r') as j:
             self.objects = json.load(j)
 
-        assert len(self.images) == len(self.objects)
+        assert len(self.rgb_images) == len(self.thermal_images) == len(self.objects)
 
     def __getitem__(self, i):
         # Read image
-        image = Image.open(self.images[i], mode='r')
-        image = image.convert('RGB')
-
+        # rgb와 thermal 모두 open, convert 합니다.
+        rgb_image = Image.open(self.rgb_images[i], mode='r')
+        rgb_image = rgb_image.convert('RGB')
+        
+        thermal_image = Image.open(self.thermal_images[i], mode='r')
+        thermal_image = thermal_image.convert('RGB')
+        
+        # object json은 rgb와 thermal 동일하게 때문에 변경하지 않앗습니다.
         # Read objects in this image (bounding boxes, labels, difficulties)
         objects = self.objects[i]
         boxes = torch.FloatTensor(objects['bbox'])  # (n_objects, 4)
@@ -50,12 +58,21 @@ class KaistPDDataset(Dataset):
             difficulties = difficulties[1 - difficulties]
 
         # Apply transformations
-        image, boxes, labels, difficulties = transform(image, boxes, labels, difficulties, split=self.split)
+        # rgb, thermal 이미지 변형한 것을 받아줍니다.
+        rgb_image, boxes, labels, difficulties = transform(rgb_image, boxes, labels, difficulties, split=self.split)
+        thermal_image, boxes, labels, difficulties = transform(thermal_image, boxes, labels, difficulties, split=self.split)
 
-        return image, boxes, labels, difficulties
+        image_list = []
+        image_list.append(rgb_image)
+        image_list.append(thermal_image)
+        
+        # image_list로 rgb_image와 thermal_image 모두를 return해줍니다
+        # image_list[0] == rgb_image
+        # image_list[1] == thermal_image
+        return image_list, boxes, labels, difficulties
 
     def __len__(self):
-        return len(self.images)
+        return len(self.rgb_images)
 
     def collate_fn(self, batch):
         """
@@ -68,18 +85,32 @@ class KaistPDDataset(Dataset):
         :param batch: an iterable of N sets from __getitem__()
         :return: a tensor of images, lists of varying-size tensors of bounding boxes, labels, and difficulties
         """
-
-        images = list()
+        
+        # image 리스트로 이미지가 들어오기 때문에 수정이 필요합니다
+        # shape 주의!!
+        rgb_images = list()
+        thermal_images = list()
         boxes = list()
         labels = list()
         difficulties = list()
 
         for b in batch:
-            images.append(b[0])
+            # len(batch) # 32
+            # len(batch[0]) # 4
+            # len(batch[0][0]) # 2
+            # len(batch[0][0][0]) # 3 (이미지 접근)
+            rgb_images.append(b[0][0])
+            thermal_images.append(b[0][1])
             boxes.append(b[1])
             labels.append(b[2])
             difficulties.append(b[3])
 
-        images = torch.stack(images, dim=0)
+        
+        rgb_images = torch.stack(rgb_images, dim=0)
+        thermal_images = torch.stack(thermal_images, dim=0)
 
-        return images, boxes, labels, difficulties  # tensor (N, 3, 300, 300), 3 lists of N tensors each
+        image_list = []
+        image_list.append(rgb_images)
+        image_list.append(thermal_images)
+
+        return image_list, boxes, labels, difficulties  # tensor (N, 3, 300, 300), 3 lists of N tensors each

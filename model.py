@@ -42,38 +42,78 @@ class VGGBase(nn.Module):
 
         # Replacements for FC6 and FC7 in VGG16
         self.conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
-
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
+
+        # conv_NIN weight 초기화
+        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=3, padding=1) # 1*1 conv layer인 nin 추가c
 
         # Load pretrained layers
         self.load_pretrained_layers()
 
-    def forward(self, image):
+
+    # SSD300에서 base로 rgb_image와 thermal_image를 인자로 주었기 때문에
+    # forward를 수정해줍니다.
+    def forward(self, rgb_image, thermal_image):
         """
         Forward propagation.
 
         :param image: images, a tensor of dimensions (N, 3, 300, 300)
         :return: lower-level feature maps conv4_3 and conv7
         """
-        out = F.relu(self.conv1_1(image))  # (N, 64, 300, 300)
-        out = F.relu(self.conv1_2(out))  # (N, 64, 300, 300)
-        out = self.pool1(out)  # (N, 64, 150, 150)
+        # rgb
+        rgb_out = F.relu(self.conv1_1(rgb_image))  # (N, 64, 300, 300)
+        rgb_out = F.relu(self.conv1_2(rgb_out))  # (N, 64, 300, 300)
+        rgb_out = self.pool1(rgb_out)  # (N, 64, 150, 150)
 
-        out = F.relu(self.conv2_1(out))  # (N, 128, 150, 150)
-        out = F.relu(self.conv2_2(out))  # (N, 128, 150, 150)
-        out = self.pool2(out)  # (N, 128, 75, 75)
+        rgb_out = F.relu(self.conv2_1(rgb_out))  # (N, 128, 150, 150)
+        rgb_out = F.relu(self.conv2_2(rgb_out))  # (N, 128, 150, 150)
+        rgb_out = self.pool2(rgb_out)  # (N, 128, 75, 75)
 
-        out = F.relu(self.conv3_1(out))  # (N, 256, 75, 75)
-        out = F.relu(self.conv3_2(out))  # (N, 256, 75, 75)
-        out = F.relu(self.conv3_3(out))  # (N, 256, 75, 75)
-        out = self.pool3(out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
+        rgb_out = F.relu(self.conv3_1(rgb_out))  # (N, 256, 75, 75)
+        rgb_out = F.relu(self.conv3_2(rgb_out))  # (N, 256, 75, 75)
+        rgb_out = F.relu(self.conv3_3(rgb_out))  # (N, 256, 75, 75)
+        rgb_out = self.pool3(rgb_out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
 
-        out = F.relu(self.conv4_1(out))  # (N, 512, 38, 38)
-        out = F.relu(self.conv4_2(out))  # (N, 512, 38, 38)
-        out = F.relu(self.conv4_3(out))  # (N, 512, 38, 38)
-        conv4_3_feats = out  # (N, 512, 38, 38)
+        rgb_out = F.relu(self.conv4_1(rgb_out))  # (N, 512, 38, 38)
+        rgb_out = F.relu(self.conv4_2(rgb_out))  # (N, 512, 38, 38)
+        rgb_out = F.relu(self.conv4_3(rgb_out))  # (N, 512, 38, 38)
+        rgb_conv4_3_feats = rgb_out  # (N, 512, 38, 38)
+        
+        # thermal
+        thermal_out = F.relu(self.conv1_1(thermal_image))  # (N, 64, 300, 300)
+        thermal_out = F.relu(self.conv1_2(thermal_out))  # (N, 64, 300, 300)
+        thermal_out = self.pool1(thermal_out)  # (N, 64, 150, 150)
+
+        thermal_out = F.relu(self.conv2_1(thermal_out))  # (N, 128, 150, 150)
+        thermal_out = F.relu(self.conv2_2(thermal_out))  # (N, 128, 150, 150)
+        thermal_out = self.pool2(thermal_out)  # (N, 128, 75, 75)
+
+        thermal_out = F.relu(self.conv3_1(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_2(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_3(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = self.pool3(thermal_out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
+
+        thermal_out = F.relu(self.conv4_1(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_2(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_3(thermal_out))  # (N, 512, 38, 38)
+        thermal_conv4_3_feats = thermal_out  # (N, 512, 38, 38)
+
+        # 여기서 각각의 conv4_3 feature map을 concatenate 해줍니다.
+        # concatenate 되기 전에는 n*n*m 형태
+        # concatenate 된 후에는 n*n*2m 형태
+        # rgb_conv4_3_feats.shape # torch.Size([32, 512, 38, 38])
+        # thermal_conv4_3_feats.shape # torch.Size([32, 512, 38, 38])
+        # fusion_conv4_3_feats.shape # torch.Size([32, 1024, 38, 38])
+        fusion_conv4_3_feats = torch.cat((rgb_conv4_3_feats, thermal_conv4_3_feats), dim=1)
+        fusion_conv4_3_feats = fusion_conv4_3_feats
+        
+        # NIN 
+        # NIN을 이용하여 feture map의 크기를 다시 n*n*m으로 줄어야 한다. (VGG16의 pretrained weight를 사용해야하기 때문!!)
+        # 1*1 convolutional layer인 NIN (Network-in-Network)
+        conv4_3_feats = self.conv_nin(fusion_conv4_3_feats)
+
+        out = conv4_3_feats
         out = self.pool4(out)  # (N, 512, 19, 19)
-
         out = F.relu(self.conv5_1(out))  # (N, 512, 19, 19)
         out = F.relu(self.conv5_2(out))  # (N, 512, 19, 19)
         out = F.relu(self.conv5_3(out))  # (N, 512, 19, 19)
@@ -106,6 +146,15 @@ class VGGBase(nn.Module):
         for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
             state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
 
+        # self.conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
+        # self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
+        conv_fc_nin_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)
+        conv_fc_nin_bias = pretrained_state_dict['classifier.0.bias']
+        state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 0.5, 3, 3]) # (512, 1024, 3, 3)
+        state_dict['conv_nin.bias'] = decimate(conv_fc_nin_bias, m=[8])  # (1024)
+        
+        # import pdb; pdb.set_trace()
+
         # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
         # fc6
         conv_fc6_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
@@ -117,6 +166,17 @@ class VGGBase(nn.Module):
         conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
         state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
         state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
+        
+        
+        
+        # conv_fc6_weight tensor
+        # conv_fc6_bias tensor
+        # state_dict['conv6.weight'] tensor
+        # state_dict['conv6.bias'] tensor
+        # 'classifier.6.weight', 'classifier.6.bias'        
+        # import pdb; pdb.set_trace()
+        # conv_nin_weight = pretrained_state_dict['classifier.6.weight'].view(4096, 1024, 7, 7)
+        # conv_nin_bias = pretrained_state_dict['classifier.6.bias'].view(4096, 1024, 7, 7)
 
         # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
         # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
@@ -342,7 +402,9 @@ class SSD300(nn.Module):
         # Prior boxes
         self.priors_cxcy = self.create_prior_boxes()
 
-    def forward(self, image):
+    # 앞에서 ssd300 모델을 학습할 때 이미지 두개를 넣어줬기 때문에 여기서 이미지를 2개 받아야 합니다
+    # thermal_image, rgb_image
+    def forward(self, rgb_image, thermal_image):
         """
         Forward propagation.
 
@@ -350,7 +412,10 @@ class SSD300(nn.Module):
         :return: 8732 locations and class scores (i.e. w.r.t each prior box) for each image
         """
         # Run VGG base network convolutions (lower level feature map generators)
-        conv4_3_feats, conv7_feats = self.base(image)  # (N, 512, 38, 38), (N, 1024, 19, 19)
+        # base는 VGGBase()인데, conv4_3에서 feature map을 합쳐야 하기 때문에 
+        # thermal, rgb 이미지 두개를 넣어줍니다.
+        # self.base에서 반환되는 featrue map은 rgb_image와 thermal_image가 fusion된 featrue map일 것입니다.
+        conv4_3_feats, conv7_feats = self.base(rgb_image, thermal_image)  # (N, 512, 38, 38), (N, 1024, 19, 19)
 
         # Rescale conv4_3 after L2 norm
         norm = conv4_3_feats.pow(2).sum(dim=1, keepdim=True).sqrt()  # (N, 1, 38, 38)
@@ -645,5 +710,4 @@ class MultiBoxLoss(nn.Module):
         conf_loss = (conf_loss_hard_neg.sum() + conf_loss_pos.sum()) / n_positives.sum().float()  # (), scalar
 
         # TOTAL LOSS
-
         return conf_loss + self.alpha * loc_loss

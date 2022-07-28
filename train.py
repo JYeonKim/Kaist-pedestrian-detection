@@ -23,16 +23,17 @@ iterations = 120000  # number of iterations to train
 workers = 4  # number of workers for loading data in the DataLoader
 print_freq = 200  # print training status every __ batches
 lr = 5e-4  # learning rate
-decay_lr_at = [80]  # decay learning rate after these many iterations
+decay_lr_at = [70]  # decay learning rate after these many iterations
 decay_lr_to = 0.1  # decay learning rate to this fraction of the existing learning rate
 momentum = 0.9  # momentum
 weight_decay = 5e-4  # weight decay
 grad_clip = None  # clip if gradients are exploding, which may happen at larger batch sizes (sometimes at 32) - you will recognize it by a sorting error in the MuliBox loss calculation
-epochs = 100
+epochs = 80
 cudnn.benchmark = True
 
 
 def main():
+    print("실행16")
     """
     Training.
     """
@@ -84,7 +85,7 @@ def main():
 
         # Decay learning rate at particular epochs
         if epoch in decay_lr_at:
-            print("출력")
+            print("decay_lr_at!!")
             adjust_learning_rate(optimizer, decay_lr_to)
 
         # One epoch's training
@@ -117,18 +118,27 @@ def train(train_loader, model, criterion, optimizer, epoch):
     start = time.time()
 
     # Batches
-    for i, (images, boxes, labels, _) in enumerate(train_loader):
+    for i, (image_list, boxes, labels, _) in enumerate(train_loader):
         data_time.update(time.time() - start)
 
         # Move to default device
-        images = images.to(device)  # (batch_size (N), 3, 300, 300)
+        # 두개의 데이터 입력
+        rgb_images = image_list[0]
+        thermal_images = image_list[1]
+
+        rgb_images = rgb_images.to(device)
+        thermal_images = thermal_images.to(device)
+
+        # images = images.to(device)  # (batch_size (N), 3, 300, 300)
         boxes = [b.to(device) for b in boxes]
         labels = [l.to(device) for l in labels]
 
         # Forward prop.
-        predicted_locs, predicted_scores = model(images)  # (N, 8732, 4), (N, 8732, n_classes)
+        # 두개의 이미지 데이터를 인자로 넣어주었습니다.
+        predicted_locs, predicted_scores = model(rgb_images, thermal_images)  # (N, 8732, 4), (N, 8732, n_classes)
 
         # Loss
+        # loss를 찍어봤을 때 여기서 nan 값이 들어온다.
         loss = criterion(predicted_locs, predicted_scores, boxes, labels)  # scalar
 
         # Backward prop.
@@ -142,7 +152,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # Update model
         optimizer.step()
 
-        losses.update(loss.item(), images.size(0))
+        losses.update(loss.item(), rgb_images.size(0))
         batch_time.update(time.time() - start)
 
         start = time.time()
@@ -155,7 +165,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, i, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
-    del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
+    del predicted_locs, predicted_scores, rgb_images, thermal_images, boxes, labels  # free some memory since their histories may be stored
 
 
 if __name__ == '__main__':
