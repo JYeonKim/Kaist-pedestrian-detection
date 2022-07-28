@@ -1,5 +1,2 @@
 # Kaist-pedestrian-detection
-Kaist-pedestrian-detection
-
-main branch코드는 thermal baseline 원복한 코드입니다.
-(자신의 폴더에 맞춰 경로 변경이 필수입니다. 생각보다 많이 바꿔야하니 주의해주세요)
+-  ‘DNN Based Multi-spectrum Pedestrian Detection Method Using Color and Thermal Image’ 논문을 읽고 그 방법론을 적용한 코드입니다. model 부분까지 모두 적용된 상태이고, multispectral에 맞게 시각화 및 평가를 위해서 detect.py를 수정하고 있습니다.
