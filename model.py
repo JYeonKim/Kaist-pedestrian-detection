@@ -649,20 +649,17 @@ class MultiBoxLoss(nn.Module):
         n_classes = predicted_scores.size(2)
 
         assert n_priors == predicted_locs.size(1) == predicted_scores.size(1)
-
+        
         true_locs = torch.zeros((batch_size, n_priors, 4), dtype=torch.float).to(device)  # (N, 8732, 4)
         true_classes = torch.zeros((batch_size, n_priors), dtype=torch.long).to(device)  # (N, 8732)
 
         # For each image
         for i in range(batch_size):
             n_objects = boxes[i].size(0)
-
             overlap = find_jaccard_overlap(boxes[i],
                                            self.priors_xy)  # (n_objects, 8732)
-
             # For each prior, find the object that has the maximum overlap
             overlap_for_each_prior, object_for_each_prior = overlap.max(dim=0)  # (8732)
-
             # We don't want a situation where an object is not represented in our positive (non-background) priors -
             # 1. An object might not be the best object for all priors, and is therefore not in object_for_each_prior.
             # 2. All priors with the object may be assigned as background based on the threshold (0.5).
@@ -670,7 +667,6 @@ class MultiBoxLoss(nn.Module):
             # To remedy this -
             # First, find the prior that has the maximum overlap for each object.
             _, prior_for_each_object = overlap.max(dim=1)  # (N_o)
-
             # Then, assign each object to the corresponding maximum-overlap-prior. (This fixes 1.)
             object_for_each_prior[prior_for_each_object] = torch.LongTensor(range(n_objects)).to(device)
 
@@ -687,7 +683,6 @@ class MultiBoxLoss(nn.Module):
 
             # Encode center-size object coordinates into the form we regressed predicted boxes to
             true_locs[i] = cxcy_to_gcxgcy(xy_to_cxcy(boxes[i][object_for_each_prior]), self.priors_cxcy)  # (8732, 4)
-
         # Identify priors that are positive (object/non-background)
         positive_priors = true_classes != 0  # (N, 8732)
 
@@ -728,6 +723,8 @@ class MultiBoxLoss(nn.Module):
 
         # As in the paper, averaged over positive priors only, although computed over both positive and hard-negative priors
         conf_loss = (conf_loss_hard_neg.sum() + conf_loss_pos.sum()) / n_positives.sum().float()  # (), scalar
+
+        # import pdb; pdb.set_trace()
 
         # TOTAL LOSS
         return conf_loss + self.alpha * loc_loss

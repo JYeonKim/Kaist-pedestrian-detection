@@ -59,8 +59,7 @@ class KaistPDDataset(Dataset):
 
         # Apply transformations
         # rgb, thermal 이미지 변형한 것을 받아줍니다.
-        rgb_image, boxes, labels, difficulties = transform(rgb_image, boxes, labels, difficulties, split=self.split)
-        thermal_image, boxes, labels, difficulties = transform(thermal_image, boxes, labels, difficulties, split=self.split)
+        rgb_image, thermal_image, boxes, labels, difficulties = transform(rgb_image, thermal_image, boxes, labels, difficulties, split=self.split)
 
         image_list = []
         image_list.append(rgb_image)
@@ -105,7 +104,6 @@ class KaistPDDataset(Dataset):
             labels.append(b[2])
             difficulties.append(b[3])
 
-        
         rgb_images = torch.stack(rgb_images, dim=0)
         thermal_images = torch.stack(thermal_images, dim=0)
 

@@ -33,7 +33,7 @@ cudnn.benchmark = True
 
 
 def main():
-    print("변경qqqq")
+    print("변경 - transform + urils 완전! 수정!! ver11")
     """
     Training.
     """
