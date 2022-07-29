@@ -88,9 +88,8 @@ def detect(rgb_original_image, thermal_original_image, min_score, max_overlap, t
 
         # Boxes
         box_location = det_boxes[i].tolist()
-        draw.rectangle(xy=box_location, outline=label_color_map[det_labels[i]])
-        draw.rectangle(xy=[l + 1. for l in box_location], outline=label_color_map[
-            det_labels[i]])  # a second rectangle at an offset of 1 pixel to increase line thickness
+        draw.rectangle(xy=box_location, outline='red')
+        draw.rectangle(xy=[l + 1. for l in box_location], outline='red')  # a second rectangle at an offset of 1 pixel to increase line thickness
         # draw.rectangle(xy=[l + 2. for l in box_location], outline=label_color_map[
         #     det_labels[i]])  # a third rectangle at an offset of 1 pixel to increase line thickness
         # draw.rectangle(xy=[l + 3. for l in box_location], outline=label_color_map[
@@ -198,7 +197,7 @@ if __name__ == '__main__':
     out_path = "/content/drive/MyDrive/kaist_output/ssd-h_prediction_ver3_0728.mp4"
     fps = 5
     frame_array = []
-    with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_visible_images.json'), 'r') as j:
+    with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_rgb_images.json'), 'r') as j:
         img_path = json.load(j) # rgb 이미지 경로를 img_path로 받음 
     with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_lwir_images.json'), 'r') as j:
         thermal_img_path = json.load(j) # thermal 이미지 경로
@@ -219,7 +218,7 @@ if __name__ == '__main__':
             
             # thermal image
             thermal_original_image = Image.open(thermal_img_path[index], mode='r')
-            thermal_original_image = rgb_original_image.convert('RGB')
+            thermal_original_image = thermal_original_image.convert('RGB')
             
             # annotated images
             annotated_image = detect(rgb_original_image, thermal_original_image, min_score=0.2, max_overlap=0.5, top_k=200, image_id=index) # 0.2, 0.5를 바꾸지 말것.
