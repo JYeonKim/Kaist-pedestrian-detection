@@ -17,6 +17,8 @@ class VGGBase(nn.Module):
         super(VGGBase, self).__init__()
 
         # Standard convolutional layers in VGG16
+        
+        # rgb
         self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)  # stride = 1, by default
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -40,13 +42,26 @@ class VGGBase(nn.Module):
         self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.pool5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)  # retains size because stride is 1 (and padding)
 
+        
         # Replacements for FC6 and FC7 in VGG16
         self.conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
         # conv_NIN weight 초기화
-        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=3, padding=1) # 1*1 conv layer인 nin 추가
+        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=1) # 1*1 conv layer인 nin 추가
 
+        # thermal
+        self.conv1_1_thermal = nn.Conv2d(3, 64, kernel_size=3, padding=1) # thermal
+        self.conv1_2_thermal = nn.Conv2d(64, 64, kernel_size=3, padding=1) # thermal
+        self.conv2_1_thermal = nn.Conv2d(64, 128, kernel_size=3, padding=1) # thermal
+        self.conv2_2_thermal = nn.Conv2d(128, 128, kernel_size=3, padding=1) # thermal
+        self.conv3_1_thermal = nn.Conv2d(128, 256, kernel_size=3, padding=1) # thermal
+        self.conv3_2_thermal = nn.Conv2d(256, 256, kernel_size=3, padding=1) # thermal
+        self.conv3_3_thermal = nn.Conv2d(256, 256, kernel_size=3, padding=1) # thermal
+        self.conv4_1_thermal = nn.Conv2d(256, 512, kernel_size=3, padding=1) # thermal
+        self.conv4_2_thermal = nn.Conv2d(512, 512, kernel_size=3, padding=1) # thermal
+        self.conv4_3_thermal = nn.Conv2d(512, 512, kernel_size=3, padding=1) # thermal
+        
         # Load pretrained layers
         self.load_pretrained_layers()
 
@@ -80,22 +95,22 @@ class VGGBase(nn.Module):
         rgb_conv4_3_feats = rgb_out  # (N, 512, 38, 38)
         
         # thermal
-        thermal_out = F.relu(self.conv1_1(thermal_image))  # (N, 64, 300, 300)
-        thermal_out = F.relu(self.conv1_2(thermal_out))  # (N, 64, 300, 300)
+        thermal_out = F.relu(self.conv1_1_thermal(thermal_image))  # (N, 64, 300, 300)
+        thermal_out = F.relu(self.conv1_2_thermal(thermal_out))  # (N, 64, 300, 300)
         thermal_out = self.pool1(thermal_out)  # (N, 64, 150, 150)
 
-        thermal_out = F.relu(self.conv2_1(thermal_out))  # (N, 128, 150, 150)
-        thermal_out = F.relu(self.conv2_2(thermal_out))  # (N, 128, 150, 150)
+        thermal_out = F.relu(self.conv2_1_thermal(thermal_out))  # (N, 128, 150, 150)
+        thermal_out = F.relu(self.conv2_2_thermal(thermal_out))  # (N, 128, 150, 150)
         thermal_out = self.pool2(thermal_out)  # (N, 128, 75, 75)
 
-        thermal_out = F.relu(self.conv3_1(thermal_out))  # (N, 256, 75, 75)
-        thermal_out = F.relu(self.conv3_2(thermal_out))  # (N, 256, 75, 75)
-        thermal_out = F.relu(self.conv3_3(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_1_thermal(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_2_thermal(thermal_out))  # (N, 256, 75, 75)
+        thermal_out = F.relu(self.conv3_3_thermal(thermal_out))  # (N, 256, 75, 75)
         thermal_out = self.pool3(thermal_out)  # (N, 256, 38, 38), it would have been 37 if not for ceil_mode = True
 
-        thermal_out = F.relu(self.conv4_1(thermal_out))  # (N, 512, 38, 38)
-        thermal_out = F.relu(self.conv4_2(thermal_out))  # (N, 512, 38, 38)
-        thermal_out = F.relu(self.conv4_3(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_1_thermal(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_2_thermal(thermal_out))  # (N, 512, 38, 38)
+        thermal_out = F.relu(self.conv4_3_thermal(thermal_out))  # (N, 512, 38, 38)
         thermal_conv4_3_feats = thermal_out  # (N, 512, 38, 38)
 
         # 여기서 각각의 conv4_3 feature map을 concatenate 해줍니다.
@@ -105,7 +120,6 @@ class VGGBase(nn.Module):
         # thermal_conv4_3_feats.shape # torch.Size([32, 512, 38, 38])
         # fusion_conv4_3_feats.shape # torch.Size([32, 1024, 38, 38])
         fusion_conv4_3_feats = torch.cat((rgb_conv4_3_feats, thermal_conv4_3_feats), dim=1)
-        fusion_conv4_3_feats = fusion_conv4_3_feats
         
         # NIN 
         # NIN을 이용하여 feture map의 크기를 다시 n*n*m으로 줄어야 한다. (VGG16의 pretrained weight를 사용해야하기 때문!!)
@@ -141,16 +155,25 @@ class VGGBase(nn.Module):
         # Pretrained VGG base
         pretrained_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
         pretrained_param_names = list(pretrained_state_dict.keys())
-
+                
+        # param_names
+        
         # Transfer conv. parameters from pretrained model to current model
-        for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
+        for i, param in enumerate(param_names[:-(6 + 10*2)]):  # excluding conv6 and conv7 and conv_nin parameters ans thermal parameters
+            state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
+        
+        # conv thermal weight 초기화
+        # param_names[-20:] # conv1_1에 들어갔던 pretrained weight가 동일하게 들어간다.
+        # ['conv1_1_thermal.weight', 'conv1_1_thermal.bias', 'conv1_2_thermal.weight', 'conv1_2_thermal.bias', 'conv2_1_thermal.weight', 'conv2_1_thermal.bias', 'conv2_2_thermal.weight', 
+        # 'conv2_2_thermal.bias', 'conv3_1_thermal.weight', 'conv3_1_thermal.bias', 'conv3_2_thermal.weight', 'conv3_2_thermal.bias', 'conv3_3_thermal.weight', 'conv3_3_thermal.bias', 
+        # 'conv4_1_thermal.weight', 'conv4_1_thermal.bias', 'conv4_2_thermal.weight', 'conv4_2_thermal.bias', 'conv4_3_thermal.weight', 'conv4_3_thermal.bias']
+        for i, param in enumerate(param_names[-20:]):
             state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
 
-        # self.conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
-        # self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
-        conv_fc_nin_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)
-        conv_fc_nin_bias = pretrained_state_dict['classifier.0.bias']
-        state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 0.5, 3, 3]) # (512, 1024, 3, 3)
+        # conv_nin weight 초기화
+        conv_fc_nin_weight = pretrained_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)
+        conv_fc_nin_bias = pretrained_state_dict['classifier.3.bias']
+        state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 4, None, None]) # (512, 1024, 3, 3)
         state_dict['conv_nin.bias'] = decimate(conv_fc_nin_bias, m=[8])  # (512)
         
         # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
@@ -164,8 +187,6 @@ class VGGBase(nn.Module):
         conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
         state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
         state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
-        
-        
         
         # conv_fc6_weight tensor
         # conv_fc6_bias tensor
@@ -627,20 +648,17 @@ class MultiBoxLoss(nn.Module):
         n_classes = predicted_scores.size(2)
 
         assert n_priors == predicted_locs.size(1) == predicted_scores.size(1)
-
+        
         true_locs = torch.zeros((batch_size, n_priors, 4), dtype=torch.float).to(device)  # (N, 8732, 4)
         true_classes = torch.zeros((batch_size, n_priors), dtype=torch.long).to(device)  # (N, 8732)
 
         # For each image
         for i in range(batch_size):
             n_objects = boxes[i].size(0)
-
             overlap = find_jaccard_overlap(boxes[i],
                                            self.priors_xy)  # (n_objects, 8732)
-
             # For each prior, find the object that has the maximum overlap
             overlap_for_each_prior, object_for_each_prior = overlap.max(dim=0)  # (8732)
-
             # We don't want a situation where an object is not represented in our positive (non-background) priors -
             # 1. An object might not be the best object for all priors, and is therefore not in object_for_each_prior.
             # 2. All priors with the object may be assigned as background based on the threshold (0.5).
@@ -648,7 +666,6 @@ class MultiBoxLoss(nn.Module):
             # To remedy this -
             # First, find the prior that has the maximum overlap for each object.
             _, prior_for_each_object = overlap.max(dim=1)  # (N_o)
-
             # Then, assign each object to the corresponding maximum-overlap-prior. (This fixes 1.)
             object_for_each_prior[prior_for_each_object] = torch.LongTensor(range(n_objects)).to(device)
 
@@ -665,7 +682,6 @@ class MultiBoxLoss(nn.Module):
 
             # Encode center-size object coordinates into the form we regressed predicted boxes to
             true_locs[i] = cxcy_to_gcxgcy(xy_to_cxcy(boxes[i][object_for_each_prior]), self.priors_cxcy)  # (8732, 4)
-
         # Identify priors that are positive (object/non-background)
         positive_priors = true_classes != 0  # (N, 8732)
 
@@ -706,6 +722,8 @@ class MultiBoxLoss(nn.Module):
 
         # As in the paper, averaged over positive priors only, although computed over both positive and hard-negative priors
         conf_loss = (conf_loss_hard_neg.sum() + conf_loss_pos.sum()) / n_positives.sum().float()  # (), scalar
+
+        # import pdb; pdb.set_trace()
 
         # TOTAL LOSS
         return conf_loss + self.alpha * loc_loss

@@ -5,13 +5,11 @@ import torch
 import random
 import xml.etree.ElementTree as ET
 import torchvision.transforms.functional as FT
-import pdb
 from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Label map
-# label_map = {k: v + 1 for v, k in enumerate(kaist_labels)}
+# label_map
 label_map = {}
 label_map['person'] = 1
 label_map['background'] = 0
@@ -49,22 +47,22 @@ def create_data_lists(kaist_path, output_folder):
             train_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
             train_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
             
-            # obj_list = []
-            # with open(os.path.join(kaist_path, 'annotation_json', id_split_list[0], id_split_list[1], file_name_json), 'r') as file:
-            #     objects = json.load(file)
-            #     for obj in objects["annotation"]:
-            #         if obj["category_id"] != -1:                         
-            #             obj_list.append(obj) # obj_list에는 하나의 이미지에 대한 annoatation 원소들이 들어간다 (근데 category_id가 -1인 것은 제외하고)
+            obj_list = []
+            with open(os.path.join(kaist_path, 'annotation_json', id_split_list[0], id_split_list[1], file_name_json), 'r') as file:
+                objects = json.load(file)
+                for obj in objects["annotation"]:
+                    if obj["category_id"] != -1:                         
+                        obj_list.append(obj) # obj_list에는 하나의 이미지에 대한 annoatation 원소들이 들어간다 (근데 category_id가 -1인 것은 제외하고)
 
-            # if len(obj_list) > 0: 
-            #     bbox = []
-            #     category_id = []
-            #     is_crowd = []
-            #     for obj in obj_list:
-            #         bbox.append(obj["bbox"])
-            #         category_id.append(obj["category_id"])
-            #         is_crowd.append(obj["is_crowd"])
-            #     train_objects.append({"bbox":bbox, "category_id":category_id, "is_crowd":is_crowd})
+            if len(obj_list) > 0: 
+                bbox = []
+                category_id = []
+                is_crowd = []
+                for obj in obj_list:
+                    bbox.append(obj["bbox"])
+                    category_id.append(obj["category_id"])
+                    is_crowd.append(obj["is_crowd"])
+                train_objects.append({"bbox":bbox, "category_id":category_id, "is_crowd":is_crowd})
 
     # assert len(train_objects) == len(train_images)
 
@@ -82,13 +80,9 @@ def create_data_lists(kaist_path, output_folder):
     with open(os.path.join(output_folder, 'TRAIN_total_images.json'), 'w') as j:
         json.dump(train_total_images, j)
 
-    # with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
-    #     json.dump(train_objects, j)
+    with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
+        json.dump(train_objects, j)
     
-    # label_map.json은 생략
-    # with open(os.path.join(output_folder, 'label_map.json'), 'w') as j:
-    #     json.dump(label_map, j)  # save label map too
-
     print('\nTRAIN DATA) Files have been saved to %s.\n' % (os.path.abspath(output_folder)))
 
     print('\nTEST DATA) START2')
@@ -96,36 +90,34 @@ def create_data_lists(kaist_path, output_folder):
     test_rgb_images = list()
     test_lwir_images = list()
     test_total_images = list()
-    # test_objects = list()
 
-    # with open(os.path.join(kaist_path, 'test-all-20.txt')) as f:
-    #     ids = f.read().splitlines()
+    with open(os.path.join(kaist_path, 'test-all-20.txt')) as f:
+        ids = f.read().splitlines()
 
-    #     for id in tqdm(ids):
-    #         id_split_list = id.split('/')
+        for id in tqdm(ids):
+            id_split_list = id.split('/')
             
-    #         rgb_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'visible')
-    #         lwir_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'lwir')
+            rgb_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'visible')
+            lwir_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'lwir')
             
-    #         file_name_jpg = id_split_list[2] + '.jpg'
-    #         # file_name_json = id_split_list[2] + '.json'
+            file_name_jpg = id_split_list[2] + '.jpg'
 
-    #         test_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
-    #         test_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
+            test_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
+            test_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
 
-    # for rgb, lwir in zip(test_rgb_images, test_lwir_images):
-    #     test_total_images.append(rgb)
-    #     test_total_images.append(lwir)
+    for rgb, lwir in zip(test_rgb_images, test_lwir_images):
+        test_total_images.append(rgb)
+        test_total_images.append(lwir)
 
-    # # Save to file
-    # with open(os.path.join(output_folder, 'TEST_rgb_images.json'), 'w') as j:
-    #     json.dump(test_rgb_images, j)
-    # with open(os.path.join(output_folder, 'TEST_lwir_images.json'), 'w') as j:
-    #     json.dump(test_lwir_images, j)
+    # Save to file
+    with open(os.path.join(output_folder, 'TEST_rgb_images.json'), 'w') as j:
+        json.dump(test_rgb_images, j)
+    with open(os.path.join(output_folder, 'TEST_lwir_images.json'), 'w') as j:
+        json.dump(test_lwir_images, j)
     
-    # # rgb, lwir 한꺼번에 저장
-    # with open(os.path.join(output_folder, 'TEST_total_images.json'), 'w') as j:
-    #     json.dump(test_total_images, j)
+    # rgb, lwir 한꺼번에 저장
+    with open(os.path.join(output_folder, 'TEST_total_images.json'), 'w') as j:
+        json.dump(test_total_images, j)
 
     print('\nTEST DATA) Files have been saved to %s.\n' % (os.path.abspath(output_folder)))
 
@@ -386,7 +378,7 @@ def find_jaccard_overlap(set_1, set_2):
 # Some augmentation functions below have been adapted from
 # From https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
 
-def expand(image, boxes, filler):
+def expand(rgb_image, thermal_image, boxes, filler):
     """
     Perform a zooming out operation by placing the image in a larger canvas of filler material.
 
@@ -398,34 +390,47 @@ def expand(image, boxes, filler):
     :return: expanded image, updated bounding box coordinates
     """
     # Calculate dimensions of proposed expanded (zoomed-out) image
-    original_h = image.size(1)
-    original_w = image.size(2)
+    rgb_original_h = rgb_image.size(1)
+    rgb_original_w = rgb_image.size(2)
+    
+    thermal_original_h = thermal_image.size(1)
+    thermal_original_w = thermal_image.size(2)
+    
     max_scale = 4
     scale = random.uniform(1, max_scale)
-    new_h = int(scale * original_h)
-    new_w = int(scale * original_w)
+    
+    rgb_new_h = int(scale * rgb_original_h)
+    rgb_new_w = int(scale * rgb_original_w)
+
+    thermal_new_h = int(scale * thermal_original_h)
+    thermal_new_w = int(scale * thermal_original_w)
 
     # Create such an image with the filler
     filler = torch.FloatTensor(filler)  # (3)
-    new_image = torch.ones((3, new_h, new_w), dtype=torch.float) * filler.unsqueeze(1).unsqueeze(1)  # (3, new_h, new_w)
+    rgb_new_image = torch.ones((3, rgb_new_h, rgb_new_w), dtype=torch.float) * filler.unsqueeze(1).unsqueeze(1)  # (3, new_h, new_w)
+    thermal_new_image = torch.ones((3, thermal_new_h, thermal_new_w), dtype=torch.float) * filler.unsqueeze(1).unsqueeze(1)
+    
     # Note - do not use expand() like new_image = filler.unsqueeze(1).unsqueeze(1).expand(3, new_h, new_w)
     # because all expanded values will share the same memory, so changing one pixel will change all
 
     # Place the original image at random coordinates in this new image (origin at top-left of image)
-    left = random.randint(0, new_w - original_w)
-    right = left + original_w
-    top = random.randint(0, new_h - original_h)
-    bottom = top + original_h
-    new_image[:, top:bottom, left:right] = image
+    # rgb 기준
+    left = random.randint(0, rgb_new_w - rgb_original_w)
+    right = left + rgb_original_w
+    top = random.randint(0, rgb_new_h - rgb_original_h)
+    bottom = top + rgb_original_h
+    
+    rgb_new_image[:, top:bottom, left:right] = rgb_image
+    thermal_new_image[:, top:bottom, left:right] = thermal_image
 
     # Adjust bounding boxes' coordinates accordingly
     new_boxes = boxes + torch.FloatTensor([left, top, left, top]).unsqueeze(
         0)  # (n_objects, 4), n_objects is the no. of objects in this image
 
-    return new_image, new_boxes
+    return rgb_new_image, thermal_new_image, new_boxes
 
 
-def random_crop(image, boxes, labels, difficulties):
+def random_crop(rgb_image, thermal_image, boxes, labels, difficulties):
     """
     Performs a random crop in the manner stated in the paper. Helps to learn to detect larger and partial objects.
 
@@ -439,8 +444,9 @@ def random_crop(image, boxes, labels, difficulties):
     :param difficulties: difficulties of detection of these objects, a tensor of dimensions (n_objects)
     :return: cropped image, updated bounding box coordinates, updated labels, updated difficulties
     """
-    original_h = image.size(1)
-    original_w = image.size(2)
+    rgb_original_h = rgb_image.size(1)
+    rgb_original_w = rgb_image.size(2)
+    
     # Keep choosing a minimum overlap until a successful crop is made
     while True:
         # Randomly draw the value for minimum overlap
@@ -448,7 +454,7 @@ def random_crop(image, boxes, labels, difficulties):
 
         # If not cropping
         if min_overlap is None:
-            return image, boxes, labels, difficulties
+            return rgb_image, thermal_image, boxes, labels, difficulties
 
         # Try up to 50 times for this choice of minimum overlap
         # This isn't mentioned in the paper, of course, but 50 is chosen in paper authors' original Caffe repo
@@ -459,8 +465,10 @@ def random_crop(image, boxes, labels, difficulties):
             min_scale = 0.3
             scale_h = random.uniform(min_scale, 1)
             scale_w = random.uniform(min_scale, 1)
-            new_h = int(scale_h * original_h)
-            new_w = int(scale_w * original_w)
+
+            # rgb 기준으로 진행
+            new_h = int(scale_h * rgb_original_h)
+            new_w = int(scale_w * rgb_original_w)
 
             # Aspect ratio has to be in [0.5, 2]
             aspect_ratio = new_h / new_w
@@ -468,9 +476,9 @@ def random_crop(image, boxes, labels, difficulties):
                 continue
 
             # Crop coordinates (origin at top-left of image)
-            left = random.randint(0, original_w - new_w)
+            left = random.randint(0, rgb_original_w - new_w)
             right = left + new_w
-            top = random.randint(0, original_h - new_h)
+            top = random.randint(0, rgb_original_h - new_h)
             bottom = top + new_h
             crop = torch.FloatTensor([left, top, right, bottom])  # (4)
 
@@ -484,7 +492,8 @@ def random_crop(image, boxes, labels, difficulties):
                 continue
 
             # Crop image
-            new_image = image[:, top:bottom, left:right]  # (3, new_h, new_w)
+            rgb_new_image = rgb_image[:, top:bottom, left:right] # (3, new_h, new_w)
+            thermal_new_image = thermal_image[:, top:bottom, left:right]
 
             # Find centers of original bounding boxes
             bb_centers = (boxes[:, :2] + boxes[:, 2:]) / 2.  # (n_objects, 2)
@@ -508,10 +517,10 @@ def random_crop(image, boxes, labels, difficulties):
             new_boxes[:, 2:] = torch.min(new_boxes[:, 2:], crop[2:])  # crop[2:] is [right, bottom]
             new_boxes[:, 2:] -= crop[:2]
 
-            return new_image, new_boxes, new_labels, new_difficulties
+            return rgb_new_image, thermal_new_image, new_boxes, new_labels, new_difficulties
 
 
-def flip(image, boxes):
+def flip(rgb_image, thermal_image, boxes):
     """
     Flip image horizontally.
 
@@ -520,18 +529,20 @@ def flip(image, boxes):
     :return: flipped image, updated bounding box coordinates
     """
     # Flip image
-    new_image = FT.hflip(image)
+    rgb_new_image = FT.hflip(rgb_image)
+    thermal_new_image = FT.hflip(thermal_image)
 
     # Flip boxes
+    # rgb 기준
     new_boxes = boxes
-    new_boxes[:, 0] = image.width - boxes[:, 0] - 1
-    new_boxes[:, 2] = image.width - boxes[:, 2] - 1
+    new_boxes[:, 0] = rgb_image.width - boxes[:, 0] - 1
+    new_boxes[:, 2] = rgb_image.width - boxes[:, 2] - 1
     new_boxes = new_boxes[:, [2, 1, 0, 3]]
 
-    return new_image, new_boxes
+    return rgb_new_image, thermal_new_image, new_boxes
 
 
-def resize(image, boxes, dims=(300, 300), return_percent_coords=True):
+def resize(rgb_image, thermal_image, boxes, dims=(300, 300), return_percent_coords=True):
     """
     Resize image. For the SSD300, resize to (300, 300).
 
@@ -543,10 +554,12 @@ def resize(image, boxes, dims=(300, 300), return_percent_coords=True):
     :return: resized image, updated bounding box coordinates (or fractional coordinates, in which case they remain the same)
     """
     # Resize image
-    new_image = FT.resize(image, dims)
+    rgb_new_image = FT.resize(rgb_image, dims)
+    thermal_new_image = FT.resize(thermal_image, dims)
 
     # Resize bounding boxes
-    old_dims = torch.FloatTensor([image.width, image.height, image.width, image.height]).unsqueeze(0)
+    # rgb 기준으로 진행
+    old_dims = torch.FloatTensor([rgb_image.width, rgb_image.height, rgb_image.width, rgb_image.height]).unsqueeze(0)
     
     # 여기서 에러 (확인)
     # pdb.set_trace()
@@ -557,17 +570,18 @@ def resize(image, boxes, dims=(300, 300), return_percent_coords=True):
         new_dims = torch.FloatTensor([dims[1], dims[0], dims[1], dims[0]]).unsqueeze(0)
         new_boxes = new_boxes * new_dims
 
-    return new_image, new_boxes
+    return rgb_new_image, thermal_new_image, new_boxes
 
 
-def photometric_distort(image):
+def photometric_distort(rgb_image, thermal_image):
     """
     Distort brightness, contrast, saturation, and hue, each with a 50% chance, in random order.
 
     :param image: image, a PIL Image
     :return: distorted image
     """
-    new_image = image
+    new_rgb_image = rgb_image
+    new_thermal_image = thermal_image
 
     distortions = [FT.adjust_brightness,
                    FT.adjust_contrast,
@@ -586,12 +600,13 @@ def photometric_distort(image):
                 adjust_factor = random.uniform(0.5, 1.5)
 
             # Apply this distortion
-            new_image = d(new_image, adjust_factor)
+            new_rgb_image = d(new_rgb_image, adjust_factor)
+            new_thermal_image = d(new_thermal_image, adjust_factor)
 
-    return new_image
+    return new_rgb_image, new_thermal_image
 
 
-def transform(image, boxes, labels, difficulties, split):
+def transform(rgb_image, thermal_image, boxes, labels, difficulties, split):
     """
     Apply the transformations above.
 
@@ -602,6 +617,8 @@ def transform(image, boxes, labels, difficulties, split):
     :param split: one of 'TRAIN' or 'TEST', since different sets of transformations are applied
     :return: transformed image, transformed bounding box coordinates, transformed labels, transformed difficulties
     """
+    # random은 seed를 통해 고정시켰습니다. rgb와 thermal간 random값이 다르면 안되기 때문입니다.
+
     assert split in {'TRAIN', 'TEST'}
 
     # Mean and standard deviation of ImageNet data that our base VGG from torchvision was trained on
@@ -609,44 +626,51 @@ def transform(image, boxes, labels, difficulties, split):
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
 
-    new_image = image
+    new_rgb_image = rgb_image
+    new_thermal_image = thermal_image
+    
     new_boxes = boxes
     new_labels = labels
     new_difficulties = difficulties
+    
     # Skip the following operations for evaluation/testing
     if split == 'TRAIN':
         # A series of photometric distortions in random order, each with 50% chance of occurrence, as in Caffe repo
-        new_image = photometric_distort(new_image)
+        new_rgb_image, new_thermal_image = photometric_distort(new_rgb_image, new_thermal_image)
 
         # Convert PIL image to Torch tensor
-        new_image = FT.to_tensor(new_image)
+        new_rgb_image = FT.to_tensor(new_rgb_image)
+        new_thermal_image = FT.to_tensor(new_thermal_image)
 
         # Expand image (zoom out) with a 50% chance - helpful for training detection of small objects
         # Fill surrounding space with the mean of ImageNet data that our base VGG was trained on
         if random.random() < 0.5:
-            new_image, new_boxes = expand(new_image, boxes, filler=mean)
+            new_rgb_image, new_thermal_image,  new_boxes = expand(new_rgb_image, new_thermal_image, boxes, filler=mean)
 
         # Randomly crop image (zoom in)
-        new_image, new_boxes, new_labels, new_difficulties = random_crop(new_image, new_boxes, new_labels,
-                                                                         new_difficulties)
-
+        new_rgb_image, new_thermal_image, new_boxes, new_labels, new_difficulties = random_crop(new_rgb_image, new_thermal_image, new_boxes, new_labels,
+                                                                        new_difficulties)
+        
         # Convert Torch tensor to PIL image
-        new_image = FT.to_pil_image(new_image)
+        new_rgb_image = FT.to_pil_image(new_rgb_image)
+        new_thermal_image = FT.to_pil_image(new_thermal_image)
 
         # Flip image with a 50% chance
         if random.random() < 0.5:
-            new_image, new_boxes = flip(new_image, new_boxes)
+            new_rgb_image, new_thermal_image, new_boxes = flip(new_rgb_image, new_thermal_image, new_boxes)
 
     # Resize image to (300, 300) - this also converts absolute boundary coordinates to their fractional form
-    new_image, new_boxes = resize(new_image, new_boxes, dims=(300, 300))
-
+    new_rgb_image, new_thermal_image, new_boxes = resize(new_rgb_image, new_thermal_image, new_boxes, dims=(300, 300))
+    
     # Convert PIL image to Torch tensor
-    new_image = FT.to_tensor(new_image)
+    new_rgb_image = FT.to_tensor(new_rgb_image)
+    new_thermal_image = FT.to_tensor(new_thermal_image)
 
     # Normalize by mean and standard deviation of ImageNet data that our base VGG was trained on
-    new_image = FT.normalize(new_image, mean=mean, std=std)
+    new_rgb_image = FT.normalize(new_rgb_image, mean=mean, std=std)
+    new_thermal_image = FT.normalize(new_thermal_image, mean=mean, std=std)
 
-    return new_image, new_boxes, new_labels, new_difficulties
+    return new_rgb_image, new_thermal_image, new_boxes, new_labels, new_difficulties
 
 
 def adjust_learning_rate(optimizer, scale):
