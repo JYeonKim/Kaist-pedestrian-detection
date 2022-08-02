@@ -193,7 +193,7 @@ class VGGBase(nn.Module):
         # state_dict['conv6.weight'] tensor
         # state_dict['conv6.bias'] tensor
         # 'classifier.6.weight', 'classifier.6.bias'        
-        # import pdb; pdb.set_trace()
+
         # conv_nin_weight = pretrained_state_dict['classifier.6.weight'].view(4096, 1024, 7, 7)
         # conv_nin_bias = pretrained_state_dict['classifier.6.bias'].view(4096, 1024, 7, 7)
 
@@ -215,17 +215,22 @@ class AuxiliaryConvolutions(nn.Module):
         super(AuxiliaryConvolutions, self).__init__()
 
         # Auxiliary/additional convolutions on top of the VGG base
-        self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=1, padding=0)  # stride = 1, by default
-        self.conv8_2 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)  # dim. reduction because stride > 1
+        self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=(5,1), padding=(2,0))  # stride = 1, by default
+        self.conv8_2 = nn.Conv2d(256, 512, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because stride > 1
+        # stride=2
+        # padding
+        # (3,1) # (11,11)
+        # (4,2) # (12,12)
+        # (2,1) # (10,11)
+        # (2,0) # (10,10)
+        self.conv9_1 = nn.Conv2d(512, 128, kernel_size=(5,1), padding=(2,0))
+        self.conv9_2 = nn.Conv2d(128, 256, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because stride > 1
 
-        self.conv9_1 = nn.Conv2d(512, 128, kernel_size=1, padding=0)
-        self.conv9_2 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)  # dim. reduction because stride > 1
+        self.conv10_1 = nn.Conv2d(256, 128, kernel_size=(5,1), padding=(2,0))
+        self.conv10_2 = nn.Conv2d(128, 256, kernel_size=(7,3), padding=(2,0))  # dim. reduction because padding = 0
 
-        self.conv10_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
-        self.conv10_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)  # dim. reduction because padding = 0
-
-        self.conv11_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
-        self.conv11_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)  # dim. reduction because padding = 0
+        self.conv11_1 = nn.Conv2d(256, 128, kernel_size=(5,1), padding=(2,0))
+        self.conv11_2 = nn.Conv2d(128, 256, kernel_size=(7,3), padding=(2,0))  # dim. reduction because padding = 0
 
         # Initialize convolutions' parameters
         self.init_conv2d()
@@ -246,18 +251,19 @@ class AuxiliaryConvolutions(nn.Module):
         :param conv7_feats: lower-level conv7 feature map, a tensor of dimensions (N, 1024, 19, 19)
         :return: higher-level feature maps conv8_2, conv9_2, conv10_2, and conv11_2
         """
-        out = F.relu(self.conv8_1(conv7_feats))  # (N, 256, 19, 19)
-        out = F.relu(self.conv8_2(out))  # (N, 512, 10, 10)
+        out = F.relu(self.conv8_1(conv7_feats))  # (N, 256, 19, 19) # torch.Size([32, 256, 15, 19])
+        out = F.relu(self.conv8_2(out))  # (N, 512, 10, 10)  # torch.Size([32, 512, 7, 11])
         conv8_2_feats = out  # (N, 512, 10, 10)
 
-        out = F.relu(self.conv9_1(out))  # (N, 128, 10, 10)
-        out = F.relu(self.conv9_2(out))  # (N, 256, 5, 5)
+        out = F.relu(self.conv9_1(out))  # (N, 128, 10, 10) # torch.Size([32, 128, 3, 11])
+        out = F.relu(self.conv9_2(out))  # (N, 256, 5, 5) #  torch.Size([32, 256, 1, 7])
         conv9_2_feats = out  # (N, 256, 5, 5)
 
         out = F.relu(self.conv10_1(out))  # (N, 128, 5, 5)
         out = F.relu(self.conv10_2(out))  # (N, 256, 3, 3)
         conv10_2_feats = out  # (N, 256, 3, 3)
-
+        # kernel_size = (8,4) # (2,2)
+        # kernel_size = (7,3) # (3,3)
         out = F.relu(self.conv11_1(out))  # (N, 128, 3, 3)
         conv11_2_feats = F.relu(self.conv11_2(out))  # (N, 256, 1, 1)
 
@@ -285,29 +291,30 @@ class PredictionConvolutions(nn.Module):
         self.n_classes = n_classes
 
         # Number of prior-boxes we are considering per position in each feature map
-        n_boxes = {'conv4_3': 4,
-                   'conv7': 6,
-                   'conv8_2': 6,
-                   'conv9_2': 6,
-                   'conv10_2': 4,
-                   'conv11_2': 4}
+        # 수정 필요함
+        n_boxes = {'conv4_3': 4*2,
+                   'conv7': 6*2,
+                   'conv8_2': 6*2,
+                   'conv9_2': 6*2,
+                   'conv10_2': 4*2,
+                   'conv11_2': 4*2}
         # 4 prior-boxes implies we use 4 different aspect ratios, etc.
 
         # Localization prediction convolutions (predict offsets w.r.t prior-boxes)
-        self.loc_conv4_3 = nn.Conv2d(512, n_boxes['conv4_3'] * 4, kernel_size=3, padding=1)
-        self.loc_conv7 = nn.Conv2d(1024, n_boxes['conv7'] * 4, kernel_size=3, padding=1)
-        self.loc_conv8_2 = nn.Conv2d(512, n_boxes['conv8_2'] * 4, kernel_size=3, padding=1)
-        self.loc_conv9_2 = nn.Conv2d(256, n_boxes['conv9_2'] * 4, kernel_size=3, padding=1)
-        self.loc_conv10_2 = nn.Conv2d(256, n_boxes['conv10_2'] * 4, kernel_size=3, padding=1)
-        self.loc_conv11_2 = nn.Conv2d(256, n_boxes['conv11_2'] * 4, kernel_size=3, padding=1)
+        self.loc_conv4_3 = nn.Conv2d(512, n_boxes['conv4_3'] * 4, kernel_size=(5,1), padding=(2,0))
+        self.loc_conv7 = nn.Conv2d(1024, n_boxes['conv7'] * 4, kernel_size=(5,1), padding=(2,0))
+        self.loc_conv8_2 = nn.Conv2d(512, n_boxes['conv8_2'] * 4, kernel_size=(5,1), padding=(2,0))
+        self.loc_conv9_2 = nn.Conv2d(256, n_boxes['conv9_2'] * 4, kernel_size=(5,1), padding=(2,0))
+        self.loc_conv10_2 = nn.Conv2d(256, n_boxes['conv10_2'] * 4, kernel_size=(5,1), padding=(2,0))
+        self.loc_conv11_2 = nn.Conv2d(256, n_boxes['conv11_2'] * 4, kernel_size=(5,1), padding=(2,0))
 
         # Class prediction convolutions (predict classes in localization boxes)
-        self.cl_conv4_3 = nn.Conv2d(512, n_boxes['conv4_3'] * n_classes, kernel_size=3, padding=1)
-        self.cl_conv7 = nn.Conv2d(1024, n_boxes['conv7'] * n_classes, kernel_size=3, padding=1)
-        self.cl_conv8_2 = nn.Conv2d(512, n_boxes['conv8_2'] * n_classes, kernel_size=3, padding=1)
-        self.cl_conv9_2 = nn.Conv2d(256, n_boxes['conv9_2'] * n_classes, kernel_size=3, padding=1)
-        self.cl_conv10_2 = nn.Conv2d(256, n_boxes['conv10_2'] * n_classes, kernel_size=3, padding=1)
-        self.cl_conv11_2 = nn.Conv2d(256, n_boxes['conv11_2'] * n_classes, kernel_size=3, padding=1)
+        self.cl_conv4_3 = nn.Conv2d(512, n_boxes['conv4_3'] * n_classes, kernel_size=(5,1), padding=(2,0))
+        self.cl_conv7 = nn.Conv2d(1024, n_boxes['conv7'] * n_classes, kernel_size=(5,1), padding=(2,0))
+        self.cl_conv8_2 = nn.Conv2d(512, n_boxes['conv8_2'] * n_classes, kernel_size=(5,1), padding=(2,0))
+        self.cl_conv9_2 = nn.Conv2d(256, n_boxes['conv9_2'] * n_classes, kernel_size=(5,1), padding=(2,0))
+        self.cl_conv10_2 = nn.Conv2d(256, n_boxes['conv10_2'] * n_classes, kernel_size=(5,1), padding=(2,0))
+        self.cl_conv11_2 = nn.Conv2d(256, n_boxes['conv11_2'] * n_classes, kernel_size=(5,1), padding=(2,0))
 
         # Initialize convolutions' parameters
         self.init_conv2d()
@@ -337,30 +344,35 @@ class PredictionConvolutions(nn.Module):
 
         # Predict localization boxes' bounds (as offsets w.r.t prior-boxes)
         l_conv4_3 = self.loc_conv4_3(conv4_3_feats)  # (N, 16, 38, 38)
-        l_conv4_3 = l_conv4_3.permute(0, 2, 3,
-                                      1).contiguous()  # (N, 38, 38, 16), to match prior-box order (after .view())
+        l_conv4_3 = l_conv4_3.permute(0, 2, 3, 1).contiguous()  # (N, 38, 38, 16), to match prior-box order (after .view())
         # (.contiguous() ensures it is stored in a contiguous chunk of memory, needed for .view() below)
         l_conv4_3 = l_conv4_3.view(batch_size, -1, 4)  # (N, 5776, 4), there are a total 5776 boxes on this feature map
+        # print("l_conv4_3.shape", l_conv4_3.shape)
 
         l_conv7 = self.loc_conv7(conv7_feats)  # (N, 24, 19, 19)
         l_conv7 = l_conv7.permute(0, 2, 3, 1).contiguous()  # (N, 19, 19, 24)
         l_conv7 = l_conv7.view(batch_size, -1, 4)  # (N, 2166, 4), there are a total 2116 boxes on this feature map
+        # print("l_conv7.shape", l_conv7.shape)
 
         l_conv8_2 = self.loc_conv8_2(conv8_2_feats)  # (N, 24, 10, 10)
         l_conv8_2 = l_conv8_2.permute(0, 2, 3, 1).contiguous()  # (N, 10, 10, 24)
         l_conv8_2 = l_conv8_2.view(batch_size, -1, 4)  # (N, 600, 4)
-
+        # print("l_conv8_2.shape", l_conv8_2.shape)
+        
         l_conv9_2 = self.loc_conv9_2(conv9_2_feats)  # (N, 24, 5, 5)
         l_conv9_2 = l_conv9_2.permute(0, 2, 3, 1).contiguous()  # (N, 5, 5, 24)
         l_conv9_2 = l_conv9_2.view(batch_size, -1, 4)  # (N, 150, 4)
+        # print("l_conv9_2.shape", l_conv9_2.shape)
 
         l_conv10_2 = self.loc_conv10_2(conv10_2_feats)  # (N, 16, 3, 3)
         l_conv10_2 = l_conv10_2.permute(0, 2, 3, 1).contiguous()  # (N, 3, 3, 16)
         l_conv10_2 = l_conv10_2.view(batch_size, -1, 4)  # (N, 36, 4)
+        # print("l_conv10_2.shape", l_conv10_2.shape)
 
         l_conv11_2 = self.loc_conv11_2(conv11_2_feats)  # (N, 16, 1, 1)
         l_conv11_2 = l_conv11_2.permute(0, 2, 3, 1).contiguous()  # (N, 1, 1, 16)
         l_conv11_2 = l_conv11_2.view(batch_size, -1, 4)  # (N, 4, 4)
+        # print("l_conv11_2.shape", l_conv11_2.shape)
 
         # Predict classes in localization boxes
         c_conv4_3 = self.cl_conv4_3(conv4_3_feats)  # (N, 4 * n_classes, 38, 38)
@@ -368,27 +380,33 @@ class PredictionConvolutions(nn.Module):
                                       1).contiguous()  # (N, 38, 38, 4 * n_classes), to match prior-box order (after .view())
         c_conv4_3 = c_conv4_3.view(batch_size, -1,
                                    self.n_classes)  # (N, 5776, n_classes), there are a total 5776 boxes on this feature map
+        # print("c_conv4_3.shape", c_conv4_3.shape)
 
         c_conv7 = self.cl_conv7(conv7_feats)  # (N, 6 * n_classes, 19, 19)
         c_conv7 = c_conv7.permute(0, 2, 3, 1).contiguous()  # (N, 19, 19, 6 * n_classes)
         c_conv7 = c_conv7.view(batch_size, -1,
                                self.n_classes)  # (N, 2166, n_classes), there are a total 2116 boxes on this feature map
+        # print("c_conv7.shape", c_conv7.shape)
 
         c_conv8_2 = self.cl_conv8_2(conv8_2_feats)  # (N, 6 * n_classes, 10, 10)
         c_conv8_2 = c_conv8_2.permute(0, 2, 3, 1).contiguous()  # (N, 10, 10, 6 * n_classes)
         c_conv8_2 = c_conv8_2.view(batch_size, -1, self.n_classes)  # (N, 600, n_classes)
+        # print("c_conv8_2.shape", c_conv8_2.shape)
 
         c_conv9_2 = self.cl_conv9_2(conv9_2_feats)  # (N, 6 * n_classes, 5, 5)
         c_conv9_2 = c_conv9_2.permute(0, 2, 3, 1).contiguous()  # (N, 5, 5, 6 * n_classes)
         c_conv9_2 = c_conv9_2.view(batch_size, -1, self.n_classes)  # (N, 150, n_classes)
+        # print("c_conv9_2.shape", c_conv9_2.shape)
 
         c_conv10_2 = self.cl_conv10_2(conv10_2_feats)  # (N, 4 * n_classes, 3, 3)
         c_conv10_2 = c_conv10_2.permute(0, 2, 3, 1).contiguous()  # (N, 3, 3, 4 * n_classes)
         c_conv10_2 = c_conv10_2.view(batch_size, -1, self.n_classes)  # (N, 36, n_classes)
-
+        # print("c_conv10_2.shape", c_conv10_2.shape)
+        
         c_conv11_2 = self.cl_conv11_2(conv11_2_feats)  # (N, 4 * n_classes, 1, 1)
         c_conv11_2 = c_conv11_2.permute(0, 2, 3, 1).contiguous()  # (N, 1, 1, 4 * n_classes)
         c_conv11_2 = c_conv11_2.view(batch_size, -1, self.n_classes)  # (N, 4, n_classes)
+        # print("c_conv11_2.shape", c_conv11_2.shape)
 
         # A total of 8732 boxes
         # Concatenate in this specific order (i.e. must match the order of the prior-boxes)
@@ -458,6 +476,11 @@ class SSD300(nn.Module):
 
         :return: prior boxes in center-size coordinates, a tensor of dimensions (8732, 4)
         """
+        # A SSD-based Crowded Pedestrian Detection Method에 나온 방법 적용하기 위해 여기 수정
+        # Each default box is set with horiziontal offsets in order to increase density of default boxes
+        # The feature map 
+        # 두개의 기본상자 각각에 수평 방향으로 많은 간격을 발생시키는 작은 기본 상자이다.
+
         fmap_dims = {'conv4_3': 38,
                      'conv7': 19,
                      'conv8_2': 10,
@@ -488,10 +511,12 @@ class SSD300(nn.Module):
                 for j in range(fmap_dims[fmap]):
                     cx = (j + 0.5) / fmap_dims[fmap]
                     cy = (i + 0.5) / fmap_dims[fmap]
-
+                    
+                    horizontal_cx = cx + 0.25
+                    
                     for ratio in aspect_ratios[fmap]:
                         prior_boxes.append([cx, cy, obj_scales[fmap] * sqrt(ratio), obj_scales[fmap] / sqrt(ratio)])
-
+                        prior_boxes.append([horizontal_cx, cy, obj_scales[fmap] * sqrt(ratio), obj_scales[fmap] / sqrt(ratio)])
                         # For an aspect ratio of 1, use an additional prior whose scale is the geometric mean of the
                         # scale of the current feature map and the scale of the next feature map
                         if ratio == 1.:
@@ -501,10 +526,11 @@ class SSD300(nn.Module):
                             except IndexError:
                                 additional_scale = 1.
                             prior_boxes.append([cx, cy, additional_scale, additional_scale])
+                            prior_boxes.append([horizontal_cx, cy, additional_scale, additional_scale])
 
         prior_boxes = torch.FloatTensor(prior_boxes).to(device)  # (8732, 4)
         prior_boxes.clamp_(0, 1)  # (8732, 4)
-
+        print("len : prior_boxes", len(prior_boxes)) # 17464
         return prior_boxes
 
     def detect_objects(self, predicted_locs, predicted_scores, min_score, max_overlap, top_k):
@@ -722,8 +748,6 @@ class MultiBoxLoss(nn.Module):
 
         # As in the paper, averaged over positive priors only, although computed over both positive and hard-negative priors
         conf_loss = (conf_loss_hard_neg.sum() + conf_loss_pos.sum()) / n_positives.sum().float()  # (), scalar
-
-        # import pdb; pdb.set_trace()
 
         # TOTAL LOSS
         return conf_loss + self.alpha * loc_loss

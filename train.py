@@ -16,8 +16,8 @@ n_classes = len(label_map)  # number of different types of objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
-checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
-# checkpoint = None  # path to model checkpoint, None if none
+# checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
+checkpoint = None  # path to model checkpoint, None if none
 batch_size = 32  # batch size
 iterations = 120000  # number of iterations to train
 workers = 4  # number of workers for loading data in the DataLoader
@@ -30,6 +30,8 @@ weight_decay = 5e-4  # weight decay
 grad_clip = None  # clip if gradients are exploding, which may happen at larger batch sizes (sometimes at 32) - you will recognize it by a sorting error in the MuliBox loss calculation
 epochs = 80
 cudnn.benchmark = True
+# 추가
+gamma = 0.1
 
 
 def main():
@@ -51,8 +53,13 @@ def main():
                     biases.append(param)
                 else:
                     not_biases.append(param)
+        # 논문에서 제시한 optimizer를 사용함 -> Adam
+        # gamma를 사용하기 위해 scheduler를 사용함
         optimizer = torch.optim.SGD(params=[{'params': biases, 'lr': 2 * lr}, {'params': not_biases}],
                                     lr=lr, momentum=momentum, weight_decay=weight_decay)
+        # optimizer = torch.optim.Adam(params=[{'params': biases, 'lr': 2 * lr}, {'params': not_biases}],
+        #                             lr=lr, weight_decay=weight_decay)
+        # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma, verbose=True)
 
     else:
         checkpoint = torch.load(checkpoint)
@@ -91,13 +98,15 @@ def main():
               model=model,
               criterion=criterion,
               optimizer=optimizer,
-              epoch=epoch)
+              epoch=epoch,
+              scheduler=None)
 
         # Save checkpoint
         save_checkpoint(epoch, model, optimizer)
 
 
-def train(train_loader, model, criterion, optimizer, epoch):
+def train(train_loader, model, criterion, optimizer, epoch, scheduler=None):
+    print("baseline + ssd-h + crowded pedestrian detection 방법 적용 1")
     """
     One epoch's training.
 
@@ -163,8 +172,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, i, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
+    # scheduler.step() # scheduler 사용
     del predicted_locs, predicted_scores, rgb_images, thermal_images, boxes, labels  # free some memory since their histories may be stored
-
 
 if __name__ == '__main__':
     main()

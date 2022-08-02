@@ -238,7 +238,6 @@ def show_gt_image(original_image, annotation):
     return annotated_image
 
 if __name__ == '__main__':
-    print("수정")
     out_path = "/content/drive/MyDrive/kaist_output/ssd-h_total_image6.mp4"
     out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_total_image6"
     fps = 5
