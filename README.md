@@ -17,6 +17,6 @@
 ![image](https://user-images.githubusercontent.com/46176600/182306282-2454fb6a-4349-4a06-8cce-22be22694b1b.png)
 ![image](https://user-images.githubusercontent.com/46176600/182306312-605dc37b-adc9-4b3a-b76d-9a272f193f04.png)
 - 'A SSD-based Crowded Pedestrian Detection Method' 논문을 통해 해결 방법을 참고하고자 합니다.
-
+https://ieeexplore.ieee.org/abstract/document/8570435
 - 참고 이미지는 논문 이미지 중 하나 입니다.
 ![image](https://user-images.githubusercontent.com/46176600/182306617-c64810ec-29e2-4709-9359-836c94c1901b.png)
