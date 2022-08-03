@@ -74,54 +74,43 @@ def detect(rgb_original_image, thermal_original_image, annotation, min_score, ma
     # If no objects found, the detected labels will be set to ['0.'], i.e. ['background'] in SSD300.detect_objects() in model.py
     if det_labels == ['background']:
         # Just return original image
-        return original_image
+        return rgb_original_image, thermal_original_image
 
-    
     annotated_image = original_image
     annotated_image2 = thermal_original_image
 
     for i in range(0,2):
-        if i == 0:
-            draw = ImageDraw.Draw(annotated_image)
-        else:
-            draw = ImageDraw.Draw(annotated_image2)
-        font = ImageFont.load_default()
+      if i == 0:
+          draw = ImageDraw.Draw(annotated_image)
+      else:
+          draw = ImageDraw.Draw(annotated_image2)
+      font = ImageFont.load_default()
 
-        # Suppress specific classes, if needed
-        for i in range(det_boxes.size(0)):
-            if suppress is not None:
-                if det_labels[i] in suppress:
-                    continue
-            # Boxes
-            box_location = det_boxes[i].tolist()
-            draw.rectangle(xy=box_location, outline=label_color_map[det_labels[i]])
-            draw.rectangle(xy=[l + 1. for l in box_location], outline=label_color_map[
-                det_labels[i]])
+      # Suppress specific classes, if needed
+      for i in range(det_boxes.size(0)):
+          if suppress is not None:
+              if det_labels[i] in suppress:
+                  continue
+          # Boxes
+          box_location = det_boxes[i].tolist()
+          draw.rectangle(xy=box_location, outline='red')
+          draw.rectangle(xy=[l + 1. for l in box_location], outline='red')
 
-            # Text
-            text_size = font.getsize(det_labels[i].upper())
-            text_location = [box_location[0] + 2., box_location[1] - text_size[1]]
-            textbox_location = [box_location[0], box_location[1] - text_size[1], box_location[0] + text_size[0] + 4.,
-                                box_location[1]]
-            draw.rectangle(xy=textbox_location, fill=label_color_map[det_labels[i]])
+          # Text
+          text_size = font.getsize(det_labels[i].upper())
+          text_location = [box_location[0] + 2., box_location[1] - text_size[1]]
+          textbox_location = [box_location[0], box_location[1] - text_size[1], box_location[0] + text_size[0] + 4.,
+                              box_location[1]]
+          draw.rectangle(xy=textbox_location, fill='red')
 
-            text = str(round(det_scores[0][i].cpu().detach().item(), 4))
-            draw.text(xy=text_location, text=text, fill='white',
-                    font=font)
-        del draw
-    
-    annotated_image = show_gt_image(annotated_image, annotation)
-    annotated_image2 = show_gt_image(annotated_image2, annotation)
+          text = str(round(det_scores[0][i].cpu().detach().item(), 4))
+          draw.text(xy=text_location, text=text, fill='white',
+                  font=font)
+      del draw
 
     create_prediction_json(image_id, det_boxes, det_labels_not_reverse, det_scores)
-    
-    # 여기서 합치기
-    an_size = annotated_image.size
-    new_image = Image.new('RGB', (2*an_size[0], an_size[1]), (250,250,250))
-    new_image.paste(annotated_image, (0,0))
-    new_image.paste(annotated_image2, (an_size[0],0))
 
-    return new_image
+    return annotated_image, annotated_image2
 
 # prediction.json 생성
 def create_prediction_json(image_id, det_boxes, det_labels, det_scores):
@@ -148,12 +137,6 @@ def show_gt_image(original_image, annotation):
     
     if len(bboxes) == 0:
         return original_image
-
-    labels = [rev_label_map[l] for l in labels]
-    
-    if labels == ['background']:
-    # Just return original image
-        return original_image
     
     annotated_image = original_image
     draw = ImageDraw.Draw(original_image)
@@ -167,18 +150,15 @@ def show_gt_image(original_image, annotation):
     return annotated_image
 
 if __name__ == '__main__':
-    # out_path = "/content/drive/MyDrive/kaist_output/ssd-h_total_image6.mp4"
-    out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_crowded"
-    fps = 5
+    out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h"
+    fps = 3
     frame_array = []
-    # frame_array2 = []
-    # frame_array3 = []
     with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_rgb_images.json'), 'r') as j:
         img_path = json.load(j) # rgb 이미지 경로를 img_path로 받음 
     with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_lwir_images.json'), 'r') as j:
         thermal_img_path = json.load(j) # thermal 이미지 경로
 
-        for index, img in tqdm(enumerate(img_path[:20])):
+        for index, img in tqdm(enumerate(img_path)):
             f_name = img.split("/")[-1]
             
             # annotation json 접근 (gt를 같이 표시하기 위해서)
@@ -189,7 +169,7 @@ if __name__ == '__main__':
                 objects = json.load(j)
             
             # rgb image
-            rgb_original_image = Image.open(img, mode='r')
+            rgb_original_image = Image.open(img_path[index], mode='r')
             rgb_original_image = rgb_original_image.convert('RGB')
             
             # thermal image
@@ -197,13 +177,21 @@ if __name__ == '__main__':
             thermal_original_image = thermal_original_image.convert('RGB')
 
             # annotated images
-            annotated_image = detect(rgb_original_image, thermal_original_image, objects["annotation"], min_score=0.2, max_overlap=0.5, top_k=200, image_id=index) # 0.2, 0.5를 바꾸지 말것.
-            # annotated_image = show_gt_image(annotated_image, objects["annotation"]) # annotated_image를 받았을 때 이미 gt가 있어야 한다.
+            annotated_image, thermal_annotated_image = detect(rgb_original_image, thermal_original_image, objects["annotation"], min_score=0.2, max_overlap=0.5, top_k=200, image_id=index) # 0.2, 0.5를 바꾸지 말것.
+            annotated_image = show_gt_image(annotated_image, objects["annotation"]) # annotated_image를 받았을 때 이미 gt가 있어야 한다.
+            thermal_annotated_image = show_gt_image(thermal_annotated_image, objects["annotation"]) # annotated_image를 받았을 때 이미 gt가 있어야 한다.
+            # annotated_image.save('/content/drive/MyDrive/kaist_output/output_try/'+ str(index) + '_' + f_name + '.jpg',"JPEG")
+            
+            an_size = annotated_image.size
+            new_image = Image.new('RGB', (2*an_size[0], an_size[1]), (250,250,250))
+            new_image.paste(annotated_image, (0,0))
+            new_image.paste(thermal_annotated_image, (an_size[0],0))
+            # # an_size (640, 512) # new_image.size # (1280, 512)
 
             # mp4를 위해서 frame_array에 frame 추가
-            numpy_image = np.array(annotated_image)
+            numpy_image = np.array(new_image)
             opencv_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
-
+            
             height, width, layers = opencv_image.shape
             size = (width, height)
             
@@ -216,5 +204,5 @@ if __name__ == '__main__':
     out.release()
 
     # Save to file(prediction.json)
-    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_crowded.json'), 'w') as j:
+    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h.json'), 'w') as j:
         json.dump(prediction_json_list, j, indent=4)
