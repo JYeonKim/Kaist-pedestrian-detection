@@ -215,22 +215,17 @@ class AuxiliaryConvolutions(nn.Module):
         super(AuxiliaryConvolutions, self).__init__()
 
         # Auxiliary/additional convolutions on top of the VGG base
-        self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=(5,1), padding=(2,0))  # stride = 1, by default
+        self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=1, padding=0)  # stride = 1, by default
         self.conv8_2 = nn.Conv2d(256, 512, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because stride > 1
-        # stride=2
-        # padding
-        # (3,1) # (11,11)
-        # (4,2) # (12,12)
-        # (2,1) # (10,11)
-        # (2,0) # (10,10)
-        self.conv9_1 = nn.Conv2d(512, 128, kernel_size=(5,1), padding=(2,0))
+
+        self.conv9_1 = nn.Conv2d(512, 128, kernel_size=1, padding=0)
         self.conv9_2 = nn.Conv2d(128, 256, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because stride > 1
 
-        self.conv10_1 = nn.Conv2d(256, 128, kernel_size=(5,1), padding=(2,0))
-        self.conv10_2 = nn.Conv2d(128, 256, kernel_size=(7,3), padding=(2,0))  # dim. reduction because padding = 0
+        self.conv10_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
+        self.conv10_2 = nn.Conv2d(128, 256, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because padding = 0
 
-        self.conv11_1 = nn.Conv2d(256, 128, kernel_size=(5,1), padding=(2,0))
-        self.conv11_2 = nn.Conv2d(128, 256, kernel_size=(7,3), padding=(2,0))  # dim. reduction because padding = 0
+        self.conv11_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
+        self.conv11_2 = nn.Conv2d(128, 256, kernel_size=(5,1), stride=3, padding=(2,0))  # dim. reduction because padding = 0
 
         # Initialize convolutions' parameters
         self.init_conv2d()
@@ -246,7 +241,7 @@ class AuxiliaryConvolutions(nn.Module):
 
     def forward(self, conv7_feats):
         """
-        Forward propagation.
+        Forward propagation. 
 
         :param conv7_feats: lower-level conv7 feature map, a tensor of dimensions (N, 1024, 19, 19)
         :return: higher-level feature maps conv8_2, conv9_2, conv10_2, and conv11_2
@@ -262,8 +257,7 @@ class AuxiliaryConvolutions(nn.Module):
         out = F.relu(self.conv10_1(out))  # (N, 128, 5, 5)
         out = F.relu(self.conv10_2(out))  # (N, 256, 3, 3)
         conv10_2_feats = out  # (N, 256, 3, 3)
-        # kernel_size = (8,4) # (2,2)
-        # kernel_size = (7,3) # (3,3)
+
         out = F.relu(self.conv11_1(out))  # (N, 128, 3, 3)
         conv11_2_feats = F.relu(self.conv11_2(out))  # (N, 256, 1, 1)
 
@@ -341,7 +335,6 @@ class PredictionConvolutions(nn.Module):
         :return: 8732 locations and class scores (i.e. w.r.t each prior box) for each image
         """
         batch_size = conv4_3_feats.size(0)
-
         # Predict localization boxes' bounds (as offsets w.r.t prior-boxes)
         l_conv4_3 = self.loc_conv4_3(conv4_3_feats)  # (N, 16, 38, 38)
         l_conv4_3 = l_conv4_3.permute(0, 2, 3, 1).contiguous()  # (N, 38, 38, 16), to match prior-box order (after .view())

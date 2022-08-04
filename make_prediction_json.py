@@ -111,5 +111,5 @@ if __name__ == '__main__':
             detect(rgb_original_image, thermal_original_image, min_score=0.2, max_overlap=0.5, top_k=200, image_id=index) # 0.2, 0.5를 바꾸지 말것.
 
     # Save to file(prediction.json)
-    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_prediction_ver4_middle.json'), 'w') as j:
+    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_crowded_make2.json'), 'w') as j:
         json.dump(prediction_json_list, j, indent=4)
