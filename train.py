@@ -16,8 +16,8 @@ n_classes = len(label_map)  # number of different types of objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
-# checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
-checkpoint = None  # path to model checkpoint, None if none
+checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
+# checkpoint = None  # path to model checkpoint, None if none
 batch_size = 32  # batch size
 iterations = 120000  # number of iterations to train
 workers = 4  # number of workers for loading data in the DataLoader
@@ -32,7 +32,6 @@ epochs = 80
 cudnn.benchmark = True
 # 추가
 gamma = 0.1
-
 
 def main():
     print("SSD-H + crowded pd 논문 적용 + kernel_size 재수정")
