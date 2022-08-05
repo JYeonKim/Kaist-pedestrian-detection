@@ -33,7 +33,7 @@ cudnn.benchmark = True
 
 
 def main():
-    print("변경 - transform + urils 완전! 수정!! ver11")
+    print("SSD-H + Feature-Fused SSD (batch normalize)")
     """
     Training.
     """
@@ -85,7 +85,6 @@ def main():
 
         # Decay learning rate at particular epochs
         if epoch in decay_lr_at:
-            print("decay_lr_at!!")
             adjust_learning_rate(optimizer, decay_lr_to)
 
         # One epoch's training

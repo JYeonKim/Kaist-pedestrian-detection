@@ -9,8 +9,7 @@ from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Label map
-# label_map = {k: v + 1 for v, k in enumerate(kaist_labels)}
+# label_map
 label_map = {}
 label_map['person'] = 1
 label_map['background'] = 0
@@ -30,6 +29,7 @@ def create_data_lists(kaist_path, output_folder):
     train_rgb_images = list()
     train_lwir_images = list()
     train_total_images = list()
+    train_objects = list()
 
     # Training data
     with open(os.path.join(kaist_path, 'train-all-20.txt')) as f:
@@ -47,22 +47,22 @@ def create_data_lists(kaist_path, output_folder):
             train_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
             train_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
             
-            # obj_list = []
-            # with open(os.path.join(kaist_path, 'annotation_json', id_split_list[0], id_split_list[1], file_name_json), 'r') as file:
-            #     objects = json.load(file)
-            #     for obj in objects["annotation"]:
-            #         if obj["category_id"] != -1:                         
-            #             obj_list.append(obj) # obj_list에는 하나의 이미지에 대한 annoatation 원소들이 들어간다 (근데 category_id가 -1인 것은 제외하고)
+            obj_list = []
+            with open(os.path.join(kaist_path, 'annotation_json', id_split_list[0], id_split_list[1], file_name_json), 'r') as file:
+                objects = json.load(file)
+                for obj in objects["annotation"]:
+                    if obj["category_id"] != -1:                         
+                        obj_list.append(obj) # obj_list에는 하나의 이미지에 대한 annoatation 원소들이 들어간다 (근데 category_id가 -1인 것은 제외하고)
 
-            # if len(obj_list) > 0: 
-            #     bbox = []
-            #     category_id = []
-            #     is_crowd = []
-            #     for obj in obj_list:
-            #         bbox.append(obj["bbox"])
-            #         category_id.append(obj["category_id"])
-            #         is_crowd.append(obj["is_crowd"])
-            #     train_objects.append({"bbox":bbox, "category_id":category_id, "is_crowd":is_crowd})
+            if len(obj_list) > 0: 
+                bbox = []
+                category_id = []
+                is_crowd = []
+                for obj in obj_list:
+                    bbox.append(obj["bbox"])
+                    category_id.append(obj["category_id"])
+                    is_crowd.append(obj["is_crowd"])
+                train_objects.append({"bbox":bbox, "category_id":category_id, "is_crowd":is_crowd})
 
     # assert len(train_objects) == len(train_images)
 
@@ -80,13 +80,9 @@ def create_data_lists(kaist_path, output_folder):
     with open(os.path.join(output_folder, 'TRAIN_total_images.json'), 'w') as j:
         json.dump(train_total_images, j)
 
-    # with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
-    #     json.dump(train_objects, j)
+    with open(os.path.join(output_folder, 'TRAIN_objects.json'), 'w') as j:
+        json.dump(train_objects, j)
     
-    # label_map.json은 생략
-    # with open(os.path.join(output_folder, 'label_map.json'), 'w') as j:
-    #     json.dump(label_map, j)  # save label map too
-
     print('\nTRAIN DATA) Files have been saved to %s.\n' % (os.path.abspath(output_folder)))
 
     print('\nTEST DATA) START2')
@@ -94,7 +90,6 @@ def create_data_lists(kaist_path, output_folder):
     test_rgb_images = list()
     test_lwir_images = list()
     test_total_images = list()
-    # test_objects = list()
 
     with open(os.path.join(kaist_path, 'test-all-20.txt')) as f:
         ids = f.read().splitlines()
@@ -106,7 +101,6 @@ def create_data_lists(kaist_path, output_folder):
             lwir_path = os.path.join(kaist_path, 'images', id_split_list[0], id_split_list[1], 'lwir')
             
             file_name_jpg = id_split_list[2] + '.jpg'
-            # file_name_json = id_split_list[2] + '.json'
 
             test_rgb_images.append(os.path.join(rgb_path, file_name_jpg))
             test_lwir_images.append(os.path.join(lwir_path, file_name_jpg ))
@@ -452,9 +446,6 @@ def random_crop(rgb_image, thermal_image, boxes, labels, difficulties):
     """
     rgb_original_h = rgb_image.size(1)
     rgb_original_w = rgb_image.size(2)
-
-    thermal_original_h = thermal_image.size(1)
-    thermal_original_w = thermal_image.size(2)
     
     # Keep choosing a minimum overlap until a successful crop is made
     while True:
@@ -544,8 +535,8 @@ def flip(rgb_image, thermal_image, boxes):
     # Flip boxes
     # rgb 기준
     new_boxes = boxes
-    new_boxes[:, 0] = rgb_new_image.width - boxes[:, 0] - 1
-    new_boxes[:, 2] = thermal_new_image.width - boxes[:, 2] - 1
+    new_boxes[:, 0] = rgb_image.width - boxes[:, 0] - 1
+    new_boxes[:, 2] = rgb_image.width - boxes[:, 2] - 1
     new_boxes = new_boxes[:, [2, 1, 0, 3]]
 
     return rgb_new_image, thermal_new_image, new_boxes
@@ -568,7 +559,7 @@ def resize(rgb_image, thermal_image, boxes, dims=(300, 300), return_percent_coor
 
     # Resize bounding boxes
     # rgb 기준으로 진행
-    old_dims = torch.FloatTensor([rgb_new_image.width, rgb_new_image.height, rgb_new_image.width, rgb_new_image.height]).unsqueeze(0)
+    old_dims = torch.FloatTensor([rgb_image.width, rgb_image.height, rgb_image.width, rgb_image.height]).unsqueeze(0)
     
     # 여기서 에러 (확인)
     # pdb.set_trace()

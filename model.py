@@ -48,7 +48,7 @@ class VGGBase(nn.Module):
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
         # conv_NIN weight 초기화
-        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=3, padding=1) # 1*1 conv layer인 nin 추가
+        self.conv_nin = nn.Conv2d(1024, 512, kernel_size=1) # 1*1 conv layer인 nin 추가
 
         # thermal
         self.conv1_1_thermal = nn.Conv2d(3, 64, kernel_size=3, padding=1) # thermal
@@ -64,6 +64,41 @@ class VGGBase(nn.Module):
         
         # Load pretrained layers
         self.load_pretrained_layers()
+
+        # the element-sum module
+        self.conv4_3_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+
+        self.conv5_deconv = nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2)
+        # self.conv5_3_2 = nn.Conv2d(512, 512, kernel_size=3, stride=2, dilation=2, padding=2) # torch.size([32, 512, 19, 19])
+        self.conv5_3_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        
+        self.conv_nin_conv43_conv53 = nn.Conv2d(1024, 512, kernel_size=1)
+
+        def apply_init(layer):
+            if hasattr(layer, 'weight'):
+                nn.init.xavier_uniform_(layer.weight)
+
+            if hasattr(layer, 'bias'):
+                nn.init.constant_(layer.bias, 0)
+
+        self.conv4_3_2.apply(apply_init)
+        self.conv5_deconv.apply(apply_init)
+        self.conv5_3_2.apply(apply_init)
+        self.conv_nin_conv43_conv53.apply(apply_init)
+
+        # ln_shape_4 = VGGBase.calc_activation_shape([38, 38], 3)
+        # self.conv4_layer_norm = nn.LayerNorm([20, *ln_shape_4])
+        # ln_shape_5 = VGGBase.calc_activation_shape([19, 19], 3)
+        # self.conv5_layer_norm = nn.LayerNorm([10, *ln_shape_5])
+
+        self.conv4_batch_norm = nn.BatchNorm2d(512)
+        self.conv5_batch_norm = nn.BatchNorm2d(512)
+        
+    # def calc_activation_shape(dim, ksize, dilation=(1, 1), stride=(1, 1), padding=(0, 0)):
+    #     def shape_each_dim(i):
+    #         odim_i = dim[i] + 2 * padding[i] - dilation[i] * (ksize - 1) - 1
+    #         return (odim_i / stride[i]) + 1
+    #     return int(shape_each_dim(0)), int(shape_each_dim(1))
 
 
     # SSD300에서 base로 rgb_image와 thermal_image를 인자로 주었기 때문에
@@ -120,7 +155,6 @@ class VGGBase(nn.Module):
         # thermal_conv4_3_feats.shape # torch.Size([32, 512, 38, 38])
         # fusion_conv4_3_feats.shape # torch.Size([32, 1024, 38, 38])
         fusion_conv4_3_feats = torch.cat((rgb_conv4_3_feats, thermal_conv4_3_feats), dim=1)
-        fusion_conv4_3_feats = fusion_conv4_3_feats
         
         # NIN 
         # NIN을 이용하여 feture map의 크기를 다시 n*n*m으로 줄어야 한다. (VGG16의 pretrained weight를 사용해야하기 때문!!)
@@ -131,15 +165,32 @@ class VGGBase(nn.Module):
         out = self.pool4(out)  # (N, 512, 19, 19)
         out = F.relu(self.conv5_1(out))  # (N, 512, 19, 19)
         out = F.relu(self.conv5_2(out))  # (N, 512, 19, 19)
-        out = F.relu(self.conv5_3(out))  # (N, 512, 19, 19)
+        conv5_3_feats = F.relu(self.conv5_3(out))  # (N, 512, 19, 19)
+        out = conv5_3_feats
+
+        # conv4_3_feats를 이용해서 conv4_3_2, norm 수행
+        out_conv4 = self.conv4_3_2(conv4_3_feats) # torch.Size([32, 512, 38, 38])
+        out_conv4 = self.conv4_batch_norm(out_conv4) # torch.Size([32, 512, 38, 38])
+        out_conv4 = F.relu(out_conv4) # torch.Size([32, 512, 38, 38])
+
+        out_conv5 = self.conv5_deconv(conv5_3_feats) # torch.Size([32, 512, 20, 20])
+        out_conv5 = self.conv5_3_2(out_conv5)
+        out_conv5 = self.conv5_batch_norm(out_conv5)
+        out_conv5 = F.relu(out_conv5)
+        # out_conv5.shape
+        
+        fusion_conv43_conv53 = torch.cat([out_conv4, out_conv5], dim=1)
+        out_conv43_conv53 = F.relu(self.conv_nin_conv43_conv53(fusion_conv43_conv53))
+        # 여기까지 the concatenation module. 
+
         out = self.pool5(out)  # (N, 512, 19, 19), pool5 does not reduce dimensions
-
+        
         out = F.relu(self.conv6(out))  # (N, 1024, 19, 19)
-
+        
         conv7_feats = F.relu(self.conv7(out))  # (N, 1024, 19, 19)
 
         # Lower-level feature maps
-        return conv4_3_feats, conv7_feats
+        return out_conv43_conv53, conv7_feats
 
     def load_pretrained_layers(self):
         """
@@ -156,9 +207,7 @@ class VGGBase(nn.Module):
         # Pretrained VGG base
         pretrained_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
         pretrained_param_names = list(pretrained_state_dict.keys())
-                
-        # param_names
-        
+                        
         # Transfer conv. parameters from pretrained model to current model
         for i, param in enumerate(param_names[:-(6 + 10*2)]):  # excluding conv6 and conv7 and conv_nin parameters ans thermal parameters
             state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
@@ -172,9 +221,9 @@ class VGGBase(nn.Module):
             state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
 
         # conv_nin weight 초기화
-        conv_fc_nin_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)
-        conv_fc_nin_bias = pretrained_state_dict['classifier.0.bias']
-        state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 0.5, 3, 3]) # (512, 1024, 3, 3)
+        conv_fc_nin_weight = pretrained_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)
+        conv_fc_nin_bias = pretrained_state_dict['classifier.3.bias']
+        state_dict['conv_nin.weight'] = decimate(conv_fc_nin_weight, m=[8, 4, None, None]) # (512, 1024, 3, 3)
         state_dict['conv_nin.bias'] = decimate(conv_fc_nin_bias, m=[8])  # (512)
         
         # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
@@ -188,15 +237,6 @@ class VGGBase(nn.Module):
         conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
         state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
         state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
-        
-        # conv_fc6_weight tensor
-        # conv_fc6_bias tensor
-        # state_dict['conv6.weight'] tensor
-        # state_dict['conv6.bias'] tensor
-        # 'classifier.6.weight', 'classifier.6.bias'        
-        # import pdb; pdb.set_trace()
-        # conv_nin_weight = pretrained_state_dict['classifier.6.weight'].view(4096, 1024, 7, 7)
-        # conv_nin_bias = pretrained_state_dict['classifier.6.bias'].view(4096, 1024, 7, 7)
 
         # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
         # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
