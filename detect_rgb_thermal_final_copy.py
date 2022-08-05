@@ -151,7 +151,7 @@ def show_gt_image(original_image, annotation):
     return annotated_image
 
 if __name__ == '__main__':
-    out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_crowded_change_kernel_epoch_57"
+    out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_small2"
     fps = 3
     frame_array = []
     with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_rgb_images.json'), 'r') as j:
@@ -205,5 +205,5 @@ if __name__ == '__main__':
     out.release()
 
     # Save to file(prediction.json)
-    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_crowded_change_kernel_epoch_57.json'), 'w') as j:
+    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_small2.json'), 'w') as j:
         json.dump(prediction_json_list, j, indent=4)

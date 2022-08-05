@@ -238,6 +238,7 @@ def show_gt_image(original_image, annotation):
     return annotated_image
 
 if __name__ == '__main__':
+    print("수정")
     out_path = "/content/drive/MyDrive/kaist_output/ssd-h_total_image6.mp4"
     out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_total_image6"
     fps = 5
@@ -299,5 +300,5 @@ if __name__ == '__main__':
     out2.release()
 
     # Save to file(prediction.json)
-    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_crowded.json'), 'w') as j:
+    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_total_image.json'), 'w') as j:
         json.dump(prediction_json_list, j, indent=4)

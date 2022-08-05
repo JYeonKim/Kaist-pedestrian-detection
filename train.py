@@ -6,6 +6,14 @@ from model import SSD300, MultiBoxLoss
 from datasets import KaistPDDataset
 from utils import *
 
+import neptune.new as neptune
+
+run = neptune.init(
+    project="juyeonk.kor/Summer-URP",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIyNWU4NDVhZC0xOWQ5LTRhNGQtYTdmYi05ZmRmN2FlYTcwMmUifQ==",
+)  # your credentials
+
+
 # Data parameters
 data_folder = '/content/drive/MyDrive/kaist_output/'  # folder with data files
 keep_difficult = True  # use objects considered difficult to detect?
@@ -16,8 +24,8 @@ n_classes = len(label_map)  # number of different types of objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
-checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
-# checkpoint = None  # path to model checkpoint, None if none
+# checkpoint = '/content/drive/MyDrive/Colab Notebooks/URP/kaist_pd_urp/checkpoint_ssd300.pth.tar'
+checkpoint = None  # path to model checkpoint, None if none
 batch_size = 32  # batch size
 iterations = 120000  # number of iterations to train
 workers = 4  # number of workers for loading data in the DataLoader
@@ -30,11 +38,19 @@ weight_decay = 5e-4  # weight decay
 grad_clip = None  # clip if gradients are exploding, which may happen at larger batch sizes (sometimes at 32) - you will recognize it by a sorting error in the MuliBox loss calculation
 epochs = 80
 cudnn.benchmark = True
-# 추가
-gamma = 0.1
+
+parameters = {
+    'learning_rate' : lr,
+    'batch_size': batch_size,
+    'n_epochs': epochs,
+    'momentum': momentum,
+    'weight_decay': weight_decay
+}
+
+run['model/parameters'] = parameters
 
 def main():
-    print("SSD-H + crowded pd 논문 적용 + kernel_size 재수정")
+    print("SSD-H + Feature-Fused SSD (batch normalize)")
     """
     Training.
     """
@@ -53,13 +69,8 @@ def main():
                     biases.append(param)
                 else:
                     not_biases.append(param)
-        # 논문에서 제시한 optimizer를 사용함 -> Adam
-        # gamma를 사용하기 위해 scheduler를 사용함
         optimizer = torch.optim.SGD(params=[{'params': biases, 'lr': 2 * lr}, {'params': not_biases}],
                                     lr=lr, momentum=momentum, weight_decay=weight_decay)
-        # optimizer = torch.optim.Adam(params=[{'params': biases, 'lr': 2 * lr}, {'params': not_biases}],
-        #                             lr=lr, weight_decay=weight_decay)
-        # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma, verbose=True)
 
     else:
         checkpoint = torch.load(checkpoint)
@@ -98,14 +109,13 @@ def main():
               model=model,
               criterion=criterion,
               optimizer=optimizer,
-              epoch=epoch,
-              scheduler=None)
+              epoch=epoch)
 
         # Save checkpoint
         save_checkpoint(epoch, model, optimizer)
+        run['model/saved_model'].upload('checkpoint_ssd300.pth.tar')
 
-
-def train(train_loader, model, criterion, optimizer, epoch, scheduler=None):
+def train(train_loader, model, criterion, optimizer, epoch):
     """
     One epoch's training.
 
@@ -171,8 +181,9 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler=None):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, i, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
-    # scheduler.step() # scheduler 사용
     del predicted_locs, predicted_scores, rgb_images, thermal_images, boxes, labels  # free some memory since their histories may be stored
+    run['train/epoch/loss'].log(losses.val)
+    run['train/epoch/avg_loss'].log(losses.avg)
 
 if __name__ == '__main__':
     main()
