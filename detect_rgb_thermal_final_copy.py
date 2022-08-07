@@ -151,7 +151,7 @@ def show_gt_image(original_image, annotation):
     return annotated_image
 
 if __name__ == '__main__':
-    out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_small2"
+    out_path_min = "/content/drive/MyDrive/kaist_output/ssd-h_small_elt_sum_weight_init"
     fps = 3
     frame_array = []
     with open(os.path.join("/content/drive/MyDrive/kaist_output", 'TEST_rgb_images.json'), 'r') as j:
@@ -181,13 +181,13 @@ if __name__ == '__main__':
             annotated_image, thermal_annotated_image = detect(rgb_original_image, thermal_original_image, objects["annotation"], min_score=0.2, max_overlap=0.5, top_k=200, image_id=index) # 0.2, 0.5를 바꾸지 말것.
             annotated_image = show_gt_image(annotated_image, objects["annotation"]) # annotated_image를 받았을 때 이미 gt가 있어야 한다.
             thermal_annotated_image = show_gt_image(thermal_annotated_image, objects["annotation"]) # annotated_image를 받았을 때 이미 gt가 있어야 한다.
-            # annotated_image.save('/content/drive/MyDrive/kaist_output/output_try/'+ str(index) + '_' + f_name + '.jpg',"JPEG")
             
             an_size = annotated_image.size
             new_image = Image.new('RGB', (2*an_size[0], an_size[1]), (250,250,250))
             new_image.paste(annotated_image, (0,0))
             new_image.paste(thermal_annotated_image, (an_size[0],0))
             # # an_size (640, 512) # new_image.size # (1280, 512)
+            new_image.save('/content/drive/MyDrive/kaist_output/output_small/'+ str(index) + '_' + f_name + '.jpg')
 
             # mp4를 위해서 frame_array에 frame 추가
             numpy_image = np.array(new_image)
@@ -205,5 +205,5 @@ if __name__ == '__main__':
     out.release()
 
     # Save to file(prediction.json)
-    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_small2.json'), 'w') as j:
+    with open(os.path.join('/content/drive/MyDrive/kaist_output', 'ssd-h_small_elt_sum_weight_init.json'), 'w') as j:
         json.dump(prediction_json_list, j, indent=4)

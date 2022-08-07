@@ -33,5 +33,5 @@ def evaluate_coco(test_json_path):
 
 if __name__ == '__main__':
 
-    test_json_path = '/content/drive/MyDrive/kaist_output/ssd-h_small2.json'
+    test_json_path = '/content/drive/MyDrive/kaist_output/ssd-h_small_elt_sum_weight_init.json'
     evaluate_coco(test_json_path)

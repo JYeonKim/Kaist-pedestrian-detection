@@ -87,24 +87,22 @@ class VGGBase(nn.Module):
                 nn.init.constant_(layer.bias, 0)
 
         self.conv4_3_2.apply(apply_init)
-        self.conv5_deconv.apply(apply_init)
+        # self.conv5_deconv.apply(apply_init)
         self.conv5_3_2.apply(apply_init)
-        # self.conv_nin_conv43_conv53.apply(apply_init)
-
-        # ln_shape_4 = VGGBase.calc_activation_shape([38, 38], 3)
-        # self.conv4_layer_norm = nn.LayerNorm([20, *ln_shape_4])
-        # ln_shape_5 = VGGBase.calc_activation_shape([19, 19], 3)
-        # self.conv5_layer_norm = nn.LayerNorm([10, *ln_shape_5])
 
         self.conv4_batch_norm = nn.BatchNorm2d(512)
         self.conv5_batch_norm = nn.BatchNorm2d(512)
         
-    # def calc_activation_shape(dim, ksize, dilation=(1, 1), stride=(1, 1), padding=(0, 0)):
-    #     def shape_each_dim(i):
-    #         odim_i = dim[i] + 2 * padding[i] - dilation[i] * (ksize - 1) - 1
-    #         return (odim_i / stride[i]) + 1
-    #     return int(shape_each_dim(0)), int(shape_each_dim(1))
-
+        # import pdb; pdb.set_trace()
+        # initialized by bilinear upsample
+        # self.conv5_deconv.weight = nn.functional.interpolate(input = self.conv5_deconv.weight, scale_factor=2, mode='bilinear')
+        weight_interpolate = nn.functional.interpolate(input = self.conv5_deconv.weight, scale_factor=self.conv5_deconv.weight.shape[2:], mode='bilinear')
+        # self.conv5_deconv.weight = nn.functional.interpolate(self.conv5_deconv.weight, size=self.conv5_deconv.weight.shape[2:], mode='bilinear', align_corners=False)
+        # nn.functional.interpolate(input = self.conv5_deconv.weight, mode='bilinear')
+        nn.init.constant_(self.conv5_deconv.bias, 0)
+        # upsample = nn.Upsample(size=self.conv5_deconv.weight.shape[2:], mode='bilinear')
+        # self.conv5_deconv.weight = nn.Parameter(upsample(self.conv5_deconv.weight))
+        
 
     # SSD300에서 base로 rgb_image와 thermal_image를 인자로 주었기 때문에
     # forward를 수정해줍니다.
