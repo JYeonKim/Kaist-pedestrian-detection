@@ -217,12 +217,7 @@ class AuxiliaryConvolutions(nn.Module):
         # Auxiliary/additional convolutions on top of the VGG base
         self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=(5,1), padding=(2,0))  # stride = 1, by default
         self.conv8_2 = nn.Conv2d(256, 512, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because stride > 1
-        # stride=2
-        # padding
-        # (3,1) # (11,11)
-        # (4,2) # (12,12)
-        # (2,1) # (10,11)
-        # (2,0) # (10,10)
+        
         self.conv9_1 = nn.Conv2d(512, 128, kernel_size=(5,1), padding=(2,0))
         self.conv9_2 = nn.Conv2d(128, 256, kernel_size=(5,1), stride=2, padding=(2,0))  # dim. reduction because stride > 1
 
@@ -231,7 +226,13 @@ class AuxiliaryConvolutions(nn.Module):
 
         self.conv11_1 = nn.Conv2d(256, 128, kernel_size=(5,1), padding=(2,0))
         self.conv11_2 = nn.Conv2d(128, 256, kernel_size=(7,3), padding=(2,0))  # dim. reduction because padding = 0
-
+        # stride=2
+        # padding
+        # (3,1) # (11,11)
+        # (4,2) # (12,12)
+        # (2,1) # (10,11)
+        # (2,0) # (10,10)
+        
         # Initialize convolutions' parameters
         self.init_conv2d()
 
